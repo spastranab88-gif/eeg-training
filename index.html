@@ -1,0 +1,1423 @@
+<title>EEG Fellows Training</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Open-source interactive training platform for EEG fellows. Theory Track, Module 1: Origin of the EEG signal.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,500;0,600;1,500&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: course sidebar (modules + sections) beside a single reading column; labs widen to full column with canvas stages. */
+:root{
+  --bg:#f1f4f6; --surface:#ffffff; --sunk:#e7ecf0; --ink:#132130; --muted:#566476; --line:#d5dce4;
+  --accent:#0d6a6f; --accent-soft:#d9eeee; --accent-ink:#ffffff;
+  --pos:#c4453a; --neg:#2d61b0; --neutral:#eef2f5; --warn:#9a6210; --ok:#2c7547;
+  --f-display:"Spectral", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --r:10px; --side:270px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0c1219; --surface:#131b25; --sunk:#0f1620; --ink:#e3e9f0; --muted:#8f9fb2; --line:#233040;
+  --accent:#4cb1ac; --accent-soft:#16302f; --accent-ink:#04201e;
+  --pos:#ee7b6e; --neg:#6b9fee; --neutral:#1a2430; --warn:#e0a54a; --ok:#6cc08a; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#0c1219; --surface:#131b25; --sunk:#0f1620; --ink:#e3e9f0; --muted:#8f9fb2; --line:#233040;
+  --accent:#4cb1ac; --accent-soft:#16302f; --accent-ink:#04201e;
+  --pos:#ee7b6e; --neg:#6b9fee; --neutral:#1a2430; --warn:#e0a54a; --ok:#6cc08a; color-scheme:dark }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg); color:var(--ink); font:15px/1.6 var(--f-body); -webkit-font-smoothing:antialiased}
+body::before{content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:30; background:var(--surface)}
+a{color:var(--accent)}
+button,input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
+h1,h2,h3{font-family:var(--f-display); font-weight:600; line-height:1.2; text-wrap:balance; margin:0}
+h1{font-size:clamp(28px,4vw,40px); letter-spacing:-.01em}
+h2{font-size:24px}
+h3{font-size:18px}
+p{margin:0}
+.mono{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+.eyebrow{font:600 11.5px/1 var(--f-body); letter-spacing:.09em; text-transform:uppercase; color:var(--muted)}
+
+/* shell */
+.shell{display:grid; grid-template-columns:var(--side) minmax(0,1fr); min-height:100%}
+.side{position:sticky; top:env(safe-area-inset-top,0px); height:calc(100vh - env(safe-area-inset-top,0px)); overflow:auto; background:var(--surface); border-right:1px solid var(--line); padding-block:20px 28px; padding-left:max(18px, env(safe-area-inset-left,0px)); padding-right:18px; display:flex; flex-direction:column; gap:22px}
+.brand{display:flex; gap:10px; align-items:center}
+.brand svg{flex:none}
+.brand b{display:block; font:600 17px/1.15 var(--f-display)}
+.brand span{font-size:12px; color:var(--muted)}
+.nav-group{display:flex; flex-direction:column; gap:2px}
+.nav-group .eyebrow{margin:0 0 8px 8px}
+.nav a{display:flex; align-items:flex-start; gap:10px; padding:7px 8px; border-radius:7px; color:var(--ink); text-decoration:none; font-size:14px; line-height:1.35}
+.nav a:hover{background:var(--sunk)}
+.nav a[aria-current="page"]{background:var(--accent-soft); color:var(--ink); font-weight:600}
+.nav .tick{flex:none; width:16px; height:16px; margin-top:1px; border-radius:50%; border:1.5px solid var(--line); display:grid; place-items:center}
+.nav .tick.done{background:var(--accent); border-color:var(--accent)}
+.nav .tick.done::after{content:""; width:6px; height:3.5px; border:solid var(--accent-ink); border-width:0 0 1.6px 1.6px; transform:rotate(-45deg) translate(1px,-1px)}
+.nav .mod{font-weight:600}
+.nav .sub{padding-left:34px; font-size:13.5px}
+.nav .lock{font-size:11px; color:var(--muted); margin-left:auto; white-space:nowrap}
+.side-foot{margin-top:auto; font-size:12px; color:var(--muted); display:flex; flex-direction:column; gap:6px}
+.progress{height:6px; border-radius:6px; background:var(--sunk); overflow:hidden}
+.progress i{display:block; height:100%; background:var(--accent); width:0; transition:width .4s}
+
+.topbar{display:none}
+main{min-width:0; padding-block:36px 80px; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px))}
+.page{max-width:980px; margin:0 auto; display:flex; flex-direction:column; gap:28px}
+.prose{max-width:68ch; display:flex; flex-direction:column; gap:12px}
+.lead{font-size:17px; color:var(--muted)}
+.head{display:flex; flex-direction:column; gap:12px}
+.meta-row{display:flex; flex-wrap:wrap; gap:8px 18px; font-size:13px; color:var(--muted)}
+.meta-row b{color:var(--ink); font-weight:600}
+
+/* cards and panels */
+.panel{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:20px}
+.panel > h3{margin-bottom:12px}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+.grid3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px}
+.list{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px}
+.callout{border-left:3px solid var(--accent); padding:4px 0 4px 16px; display:flex; flex-direction:column; gap:4px; max-width:72ch}
+.callout b{font-weight:600}
+
+/* lab */
+.lab{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.lab-bar{display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line)}
+.lab-bar .grow{flex:1}
+.stage{position:relative; background:var(--surface)}
+.stage canvas{display:block; width:100%; touch-action:none}
+.stage.scroll canvas{touch-action:pan-y}
+.stage + .stage{border-top:1px solid var(--line)}
+.lab-foot{display:flex; flex-wrap:wrap; gap:14px 28px; padding:14px 16px; border-top:1px solid var(--line); background:var(--sunk)}
+.readout{display:flex; flex-direction:column; gap:2px; min-width:0}
+.readout .eyebrow{font-size:10.5px}
+.readout .v{font:500 15px/1.3 var(--f-mono); font-variant-numeric:tabular-nums}
+.split{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
+.split > .stage + .stage{border-top:0; border-left:1px solid var(--line)}
+.controls{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px 20px; padding:16px}
+.ctl{display:flex; flex-direction:column; gap:6px; min-width:0}
+.ctl label, .ctl .lbl{font-size:12.5px; font-weight:600; display:flex; justify-content:space-between; gap:8px}
+.ctl label output, .ctl .lbl output{font:500 12.5px var(--f-mono); color:var(--muted)}
+input[type=range]{width:100%; accent-color:var(--accent)}
+.seg{display:inline-flex; flex-wrap:wrap; background:var(--sunk); border-radius:8px; padding:3px; gap:2px}
+.seg button{border:0; background:transparent; padding:6px 11px; border-radius:6px; font-size:13px; cursor:pointer; color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.btn{border:1px solid var(--line); background:var(--surface); padding:7px 13px; border-radius:7px; cursor:pointer; font-size:13.5px; font-weight:500; display:inline-flex; align-items:center; gap:6px; text-decoration:none; color:var(--ink)}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
+.btn.ghost{border-color:transparent; background:transparent}
+.btn.danger{color:var(--pos)}
+.btn:disabled{opacity:.5; cursor:not-allowed}
+.chips{display:flex; flex-wrap:wrap; gap:6px}
+.chip{border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:5px 11px; font-size:12.5px; cursor:pointer; color:var(--ink)}
+.chip[aria-pressed="true"]{border-color:var(--accent); background:var(--accent-soft); font-weight:600}
+.check{display:flex; gap:8px; align-items:center; font-size:13px; cursor:pointer}
+.check input{accent-color:var(--accent); width:15px; height:15px}
+.legend{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted)}
+.legend .bar{width:110px; height:8px; border-radius:4px}
+.try{display:flex; flex-direction:column; gap:8px}
+.try ol{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px}
+.tag{display:inline-block; font:500 11px/1.4 var(--f-mono); padding:1px 7px; border-radius:4px; background:var(--sunk); color:var(--muted)}
+.tip{position:absolute; pointer-events:none; background:var(--ink); color:var(--surface); font:500 12px/1.3 var(--f-mono); padding:5px 8px; border-radius:5px; white-space:nowrap; transform:translate(-50%, -130%)}
+
+/* objectives / outline */
+.obj{display:flex; flex-direction:column; gap:4px}
+.obj label{display:flex; gap:12px; align-items:flex-start; padding:9px 10px; border-radius:8px; cursor:pointer}
+.obj label:hover{background:var(--sunk)}
+.obj input{margin-top:4px; accent-color:var(--accent); width:16px; height:16px; flex:none}
+.outline{display:flex; flex-direction:column}
+.outline a{display:grid; grid-template-columns:28px minmax(0,1fr) auto; gap:12px; align-items:baseline; padding:12px 4px; border-top:1px solid var(--line); text-decoration:none; color:var(--ink)}
+.outline a:first-child{border-top:0}
+.outline a:hover b{color:var(--accent)}
+.outline .n{font:500 13px var(--f-mono); color:var(--muted)}
+.outline b{font-weight:600; display:block}
+.outline span.d{color:var(--muted); font-size:13.5px}
+.reading{display:flex; flex-direction:column; gap:3px; padding:10px 0; border-top:1px solid var(--line)}
+.reading:first-of-type{border-top:0}
+.reading i{font-family:var(--f-display); font-size:16px}
+
+/* quiz */
+.q{display:flex; flex-direction:column; gap:10px; padding:18px 0; border-top:1px solid var(--line)}
+.q:first-child{border-top:0; padding-top:0}
+.q .opts{display:flex; flex-direction:column; gap:6px}
+.q .opt{text-align:left; border:1px solid var(--line); background:var(--surface); padding:9px 12px; border-radius:8px; cursor:pointer; font-size:14px}
+.q .opt:hover{border-color:var(--muted)}
+.q .opt.right{border-color:var(--ok); background:color-mix(in srgb, var(--ok) 12%, var(--surface))}
+.q .opt.wrong{border-color:var(--pos); background:color-mix(in srgb, var(--pos) 10%, var(--surface))}
+.q .why{font-size:14px; color:var(--muted); border-left:3px solid var(--line); padding-left:12px}
+.score{font:600 14px var(--f-mono)}
+
+textarea{width:100%; min-height:110px; resize:vertical; border:1px solid var(--line); border-radius:8px; padding:10px 12px; background:var(--surface); line-height:1.5}
+input[type=text], input[type=url], select{border:1px solid var(--line); border-radius:7px; padding:7px 10px; background:var(--surface); width:100%; min-width:0}
+
+/* media */
+.media-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:12px}
+.mcard{display:flex; flex-direction:column; gap:8px; border:1px solid var(--line); border-radius:9px; padding:12px; background:var(--surface); text-align:left; cursor:pointer; min-width:0}
+.mcard:hover{border-color:var(--muted)}
+.mcard .kind{font:600 10.5px/1 var(--f-mono); letter-spacing:.06em; text-transform:uppercase; padding:4px 6px; border-radius:4px; align-self:flex-start}
+.kind.slides{background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--accent)}
+.kind.video{background:color-mix(in srgb, var(--pos) 15%, transparent); color:var(--pos)}
+.kind.image{background:color-mix(in srgb, var(--neg) 15%, transparent); color:var(--neg)}
+.kind.link{background:var(--sunk); color:var(--muted)}
+.mcard b{font-weight:600; font-size:14px; overflow-wrap:anywhere}
+.mcard small{color:var(--muted); font-size:12px}
+.empty{border:1.5px dashed var(--line); border-radius:10px; padding:26px; text-align:center; color:var(--muted); display:flex; flex-direction:column; gap:8px; align-items:center}
+.drop.over{border-color:var(--accent); background:var(--accent-soft)}
+.notice{font-size:13px; padding:10px 12px; border-radius:8px; background:var(--sunk); color:var(--muted)}
+.notice.err{background:color-mix(in srgb, var(--pos) 12%, var(--surface)); color:var(--ink)}
+.overlay{position:fixed; inset:0; background:rgba(5,10,16,.72); z-index:50; display:flex; align-items:center; justify-content:center; padding:max(16px, env(safe-area-inset-top,0px)) max(16px, env(safe-area-inset-right,0px)) max(16px, env(safe-area-inset-bottom,0px)) max(16px, env(safe-area-inset-left,0px))}
+.viewer{background:var(--surface); border-radius:12px; width:min(1000px,100%); max-height:100%; display:flex; flex-direction:column; overflow:hidden}
+.viewer-head{display:flex; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line)}
+.viewer-head b{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.viewer-body{flex:1; min-height:0; overflow:auto; background:var(--sunk); display:flex; align-items:center; justify-content:center; padding:12px}
+.viewer-body video, .viewer-body img, .viewer-body canvas{max-width:100%; max-height:72vh; display:block; border-radius:6px; background:#000}
+.viewer-body img, .viewer-body canvas{background:#fff}
+.viewer-foot{display:flex; gap:10px; align-items:center; justify-content:center; padding:10px; border-top:1px solid var(--line)}
+.related{display:flex; flex-direction:column; gap:10px}
+
+.pager{display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:20px}
+.pager a{display:flex; flex-direction:column; gap:2px; text-decoration:none; color:var(--ink); max-width:48%}
+.pager a.next{text-align:right; margin-left:auto}
+.pager a b{font-family:var(--f-display); font-size:17px; font-weight:600}
+
+@media (max-width:900px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .side{position:fixed; z-index:40; inset:0 auto 0 0; width:min(320px,86vw); height:100%; transform:translateX(-102%); transition:transform .25s; box-shadow:0 0 40px rgba(0,0,0,.25); padding-top:calc(20px + env(safe-area-inset-top,0px))}
+  .side.open{transform:none}
+  .topbar{display:flex; position:sticky; top:env(safe-area-inset-top,0px); z-index:20; align-items:center; gap:10px; background:var(--surface); border-bottom:1px solid var(--line); padding-block:10px; padding-left:max(16px, env(safe-area-inset-left,0px)); padding-right:max(16px, env(safe-area-inset-right,0px))}
+  .topbar b{font:600 16px var(--f-display); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  main{padding-top:24px}
+  .split{grid-template-columns:minmax(0,1fr)}
+  .split > .stage + .stage{border-left:0; border-top:1px solid var(--line)}
+}
+@media (max-width:640px){ .grid2,.grid3{grid-template-columns:minmax(0,1fr)} }
+@media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div class="topbar">
+  <button class="btn" id="menuBtn" aria-label="Open course contents">Contents</button>
+  <b id="topTitle">EEG Fellows Training</b>
+</div>
+<div class="shell">
+  <aside class="side" id="side" aria-label="Course contents">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="8" fill="var(--accent)"/><path d="M4 19h5l2-6 3 12 3-17 3 14 2-5h8" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><b>EEG Fellows Training</b><span>Theory Track</span></div>
+    </div>
+    <nav class="nav nav-group" id="nav"></nav>
+    <div class="side-foot">
+      <div style="display:flex;justify-content:space-between"><span>Module 1 progress</span><span class="mono" id="progTxt">0%</span></div>
+      <div class="progress"><i id="progBar"></i></div>
+      <span>Progress and notes stay in this browser.</span>
+    </div>
+  </aside>
+  <main id="main"><div class="page" id="page"></div></main>
+</div>
+
+<script>
+/* =========================================================================
+   COURSE CONTENT
+   Edit this object to add modules and sections. Each section has an id
+   (used in the link, e.g. #synchrony), a title and a renderer name.
+   STATIC_MEDIA lets a self-hosted copy list files kept in a /media folder.
+   ========================================================================= */
+const COURSE = {
+  title: "EEG Fellows Training",
+  modules: [
+    { id:"m1", n:1, title:"Origin of the EEG signal", status:"live",
+      summary:"Scalp EEG mainly reflects synchronized postsynaptic currents in aligned pyramidal neurons, summed over several square centimeters of cortex. By the end of this module, fellows can say why some brain activity is visible at the scalp, and most is not.",
+      sections:[
+        {id:"overview",  title:"Overview", kind:"Start here"},
+        {id:"membrane",  title:"From membrane to field", kind:"Lab 1"},
+        {id:"synchrony", title:"Synchrony and summation", kind:"Lab 2"},
+        {id:"fields",    title:"Open and closed fields", kind:"Lab 3"},
+        {id:"folding",   title:"Orientation and folding", kind:"Lab 4"},
+        {id:"scalp",     title:"The view from the scalp", kind:"Lab 5"},
+        {id:"misses",    title:"What EEG misses", kind:"Synthesis"},
+        {id:"check",     title:"Misconceptions check", kind:"Quiz"},
+        {id:"discussion",title:"Discussion", kind:"Seminar"}
+      ]},
+    { id:"m2", n:2, title:"Volume conduction, reference and montage", status:"planned",
+      summary:"Every scalp channel is a blurred, reference-dependent mixture of many sources, so no waveform can be read as the activity under that electrode.",
+      points:["Volume conduction and skull smearing","Forward and inverse problems","What high-density recording improves and what it cannot fix","Why no reference is neutral","Vertex, average reference and surface Laplacian","Montage and layout: GSN 128/256 and the 10-20 system"]},
+    { id:"m3", n:3, title:"Applications", status:"planned",
+      summary:"EEG in the context of other neuroimaging modalities, rhythm generation, and uses across pain, cognitive and motor neuroscience.",
+      points:["Advantages and disadvantages compared with other modalities","Clinically approved applications","Resting state versus task-based protocols","Sources and functional roles of each rhythm","Evoked versus induced activity","Uses in pain, cognitive and motor neuroscience"]},
+    { id:"m4", n:4, title:"Signal fundamentals", status:"planned",
+      summary:"Filters and sampling choices change the waveform you see, so every setting has to be understood and documented before it is applied.",
+      points:["Sampling, aliasing and the Nyquist frequency","Signals as sums of sinusoids; reading a power spectrum","High-pass, low-pass, band-pass and notch filters","Transition bandwidth, ringing and phase distortion","How aggressive high-pass filtering distorts slow ERP components"]},
+    { id:"p1", n:"P1", title:"Practical: EEG data collection", status:"planned",
+      summary:"Hands-on recording with the lab's nets and protocols.", points:["Net application and impedance","Recording protocols and documentation"]},
+    { id:"p2", n:"P2", title:"Practical: EEG analysis", status:"planned",
+      summary:"Preprocessing and analysis pipelines in MNE-Python.", points:["Preprocessing and artifact handling","Spectral and ERP analysis"]}
+  ]
+};
+const STATIC_MEDIA = [
+  /* Example for a self-hosted copy:
+  { module:"m1", section:"membrane", kind:"slides", title:"Session 1 slides", src:"media/m1-session1.pdf" },
+  { module:"m1", section:"general",  kind:"video",  title:"Recorded lecture", src:"media/m1-lecture.mp4" },
+  */
+];
+
+/* =========================================================================
+   STATE (per viewer, browser storage)
+   ========================================================================= */
+const store = {
+  key:"eegft-v1",
+  data:{visited:{}, obj:{}, quiz:{}, notes:{}},
+  load(){ try{ const s=localStorage.getItem(this.key); if(s) Object.assign(this.data, JSON.parse(s)); }catch(e){} },
+  save(){ try{ localStorage.setItem(this.key, JSON.stringify(this.data)); }catch(e){} }
+};
+store.load();
+
+/* =========================================================================
+   THEME COLORS FOR CANVAS
+   ========================================================================= */
+const C = {};
+function hexRGB(h){ h=h.trim().replace('#',''); if(h.length===3) h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function readColors(){
+  const cs=getComputedStyle(document.documentElement);
+  ['bg','surface','sunk','ink','muted','line','accent','pos','neg','neutral'].forEach(k=>{ C[k]=cs.getPropertyValue('--'+k).trim(); C[k+'RGB']=hexRGB(C[k]); });
+}
+readColors();
+const themeListeners = new Set();
+function onTheme(){ readColors(); themeListeners.forEach(f=>f()); }
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', onTheme); }catch(e){}
+new MutationObserver(onTheme).observe(document.documentElement,{attributes:true, attributeFilter:['data-theme','class','style']});
+
+function cmap(v){
+  const t=Math.max(-1,Math.min(1,v)); const a=Math.pow(Math.abs(t),0.8);
+  const T=t>=0?C.posRGB:C.negRGB, N=C.neutralRGB;
+  return [N[0]+(T[0]-N[0])*a, N[1]+(T[1]-N[1])*a, N[2]+(T[2]-N[2])*a];
+}
+function rgb(a,alpha){ return alpha==null?`rgb(${a[0]|0},${a[1]|0},${a[2]|0})`:`rgba(${a[0]|0},${a[1]|0},${a[2]|0},${alpha})`; }
+function compress(v,vmax){ const s=v<0?-1:1; return s*Math.min(1,Math.sqrt(Math.abs(v)/vmax)); }
+const legendCSS = ()=>`linear-gradient(90deg, ${C.neg}, ${C.neutral}, ${C.pos})`;
+
+/* =========================================================================
+   HELPERS
+   ========================================================================= */
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const reduceMotion = (()=>{ try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } })();
+
+function setupCanvas(cv, heightFn){
+  const ctx=cv.getContext('2d');
+  const st={cv,ctx,w:0,h:0,onresize:null};
+  function resize(){
+    const w=Math.max(200, Math.floor(cv.parentElement.clientWidth));
+    if(w===st.w) return;
+    const h=Math.round(heightFn(w)); const dpr=Math.min(2, window.devicePixelRatio||1);
+    cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); cv.style.height=h+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0); st.w=w; st.h=h;
+    st.onresize && st.onresize();
+  }
+  const ro=new ResizeObserver(resize); ro.observe(cv.parentElement);
+  resize();
+  st.destroy=()=>ro.disconnect();
+  st.force=()=>{ st.w=0; resize(); };
+  return st;
+}
+function ptr(e,cv){ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left, y:e.clientY-r.top}; }
+function makeHeat(){ const off=document.createElement('canvas'); return {off, ctx:off.getContext('2d')}; }
+function drawHeat(st, heat, cell, fn, alpha){
+  const gw=Math.ceil(st.w/cell), gh=Math.ceil(st.h/cell);
+  if(heat.off.width!==gw||heat.off.height!==gh){ heat.off.width=gw; heat.off.height=gh; heat.img=heat.ctx.createImageData(gw,gh); }
+  const d=heat.img.data;
+  for(let j=0;j<gh;j++) for(let i=0;i<gw;i++){
+    const v=fn((i+.5)*cell,(j+.5)*cell); const k=(j*gw+i)*4;
+    if(v===null){ d[k+3]=0; continue; }
+    const c=cmap(v); d[k]=c[0]; d[k+1]=c[1]; d[k+2]=c[2]; d[k+3]=alpha==null?255:alpha;
+  }
+  heat.ctx.putImageData(heat.img,0,0);
+  const ctx=st.ctx; ctx.save(); ctx.imageSmoothingEnabled=true; ctx.drawImage(heat.off,0,0,gw*cell,gh*cell); ctx.restore();
+}
+function rafLoop(fn){ let id=0, last=performance.now(), alive=true; function f(t){ if(!alive) return; const dt=Math.min(50,t-last); last=t; fn(dt); id=requestAnimationFrame(f);} id=requestAnimationFrame(f); return ()=>{alive=false; cancelAnimationFrame(id);} }
+function seeded(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+function seg(id, options, value){ return `<div class="seg" role="group" id="${id}">${options.map(([v,l])=>`<button type="button" data-v="${v}" aria-pressed="${v===value}">${l}</button>`).join('')}</div>`; }
+function bindSeg(root,id,fn){ const g=$('#'+id,root); g.addEventListener('click',e=>{ const b=e.target.closest('button'); if(!b) return; $$('button',g).forEach(x=>x.setAttribute('aria-pressed', x===b)); fn(b.dataset.v); }); }
+function arrow(ctx,x1,y1,x2,y2,head){ const a=Math.atan2(y2-y1,x2-x1); ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-head*Math.cos(a-.45),y2-head*Math.sin(a-.45)); ctx.lineTo(x2-head*Math.cos(a+.45),y2-head*Math.sin(a+.45)); ctx.closePath(); ctx.fill(); }
+
+/* =========================================================================
+   LAB 1: FROM MEMBRANE TO FIELD
+   Point-source model in an infinite homogeneous medium: V = sum q / r.
+   ========================================================================= */
+function labMembrane(root){
+  root.innerHTML = `
+  <div class="lab">
+    <div class="lab-bar">
+      ${seg('m1mode',[['epsp','Synaptic input (EPSP)'],['ap','Action potential'],['both','EPSP that triggers a spike']],'epsp')}
+      <span class="grow"></span>
+      <label class="check"><input type="checkbox" id="m1slow"> Slow motion</label>
+      <button class="btn" id="m1play" type="button">Pause</button>
+      <button class="btn primary" id="m1fire" type="button">Fire once</button>
+    </div>
+    <div class="stage"><canvas id="m1cv" aria-label="Pyramidal neuron with extracellular field and a movable electrode"></canvas></div>
+    <div class="stage scroll"><canvas id="m1tr" aria-label="Voltage traces at the electrode and at a distant probe"></canvas></div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Electrode to soma</span><span class="v" id="m1dist">0 µm</span></div>
+      <div class="readout"><span class="eyebrow">Peak at electrode</span><span class="v" id="m1pk">0</span></div>
+      <div class="readout"><span class="eyebrow">Peak at distant probe</span><span class="v" id="m1pf">0</span></div>
+      <div class="legend"><span>sink (−)</span><span class="bar" style="background:${legendCSS()}"></span><span>source (+)</span></div>
+    </div>
+  </div>`;
+  const cv=$('#m1cv',root), tcv=$('#m1tr',root);
+  const st=setupCanvas(cv, w=>Math.max(320, Math.min(470, w*0.6)));
+  const tr=setupCanvas(tcv, ()=>140);
+  const heat=makeHeat();
+  let mode='epsp', playing=!reduceMotion, slow=false, t=0, nextTrig=2;
+  let events=[], geo, el=null, far=null, particles=[];
+  const WIN=80, DT=0.05; const N=Math.round(WIN/0.1);
+  const bufN=new Float32Array(N), bufF=new Float32Array(N); let bi=0, sampleAcc=0;
+  const AP_Q=9, S=7, UM=2; // µm per px
+  function layout(){
+    const {w,h}=st;
+    geo={x0:w*0.3, yTop:h*0.12, ySoma:h*0.6, yAx:h*0.98};
+    if(!el) el={x:geo.x0+Math.min(130,w*0.14), y:geo.yTop+h*0.18};
+    el.x=Math.min(el.x,w-10); el.y=Math.min(el.y,h-10);
+    far={x:w*0.86, y:h*0.1};
+  }
+  st.onresize=layout; layout();
+  function alpha(dt,tau){ return dt<=0?0:(dt/tau)*Math.exp(1-dt/tau); }
+  function sources(time){
+    const out=[]; const {x0,yTop,ySoma,yAx}=geo;
+    for(const e of events){
+      const dt=time-e.t0;
+      if(e.type==='epsp' && dt>=0 && dt<70){
+        const I=alpha(dt,6);
+        out.push({x:x0,y:yTop+14,q:-I});
+        out.push({x:x0,y:ySoma-16,q:I*0.4},{x:x0-16,y:ySoma+10,q:I*0.3},{x:x0+16,y:ySoma+10,q:I*0.3});
+      }
+      if(e.type==='ap' && dt>=0 && dt<4){
+        const dur=3, y0=ySoma+22; const y=y0+(yAx-y0)*Math.min(1,dt/dur);
+        const env=Math.max(0,Math.min(1,dt/0.3,(4-dt)/0.7));
+        const q=AP_Q*env;
+        out.push({x:x0,y:y,q:-q},{x:x0,y:y-11,q:q/2},{x:x0,y:y+11,q:q/2});
+      }
+    }
+    return out;
+  }
+  function V(x,y,src){ let v=0; for(const s of src){ v+=s.q/Math.hypot(x-s.x,y-s.y,S); } return v; }
+  function trigger(at){
+    if(mode==='epsp') events.push({type:'epsp',t0:at});
+    else if(mode==='ap') events.push({type:'ap',t0:at});
+    else { events.push({type:'epsp',t0:at}); events.push({type:'ap',t0:at+9}); }
+  }
+  bindSeg(root,'m1mode',v=>{ mode=v; events=[]; nextTrig=t+2; });
+  $('#m1slow',root).onchange=e=>slow=e.target.checked;
+  $('#m1play',root).onclick=e=>{ playing=!playing; e.target.textContent=playing?'Pause':'Play'; };
+  $('#m1fire',root).onclick=()=>{ trigger(t+0.5); if(!playing){ playing=true; $('#m1play',root).textContent='Pause'; } };
+  if(!playing) $('#m1play',root).textContent='Play';
+  let drag=false;
+  cv.addEventListener('pointerdown',e=>{ drag=true; cv.setPointerCapture(e.pointerId); const p=ptr(e,cv); el.x=p.x; el.y=p.y; });
+  cv.addEventListener('pointermove',e=>{ if(!drag) return; const p=ptr(e,cv); el.x=Math.max(4,Math.min(st.w-4,p.x)); el.y=Math.max(4,Math.min(st.h-4,p.y)); });
+  cv.addEventListener('pointerup',()=>drag=false);
+
+  let frame=0;
+  function step(wallMs){
+    if(!playing) return;
+    const factor=slow?320:40;
+    let adv=wallMs/factor; let n=Math.min(400,Math.round(adv/DT));
+    for(let i=0;i<n;i++){
+      t+=DT;
+      if(t>=nextTrig){ trigger(t); nextTrig=t+(mode==='both'?75:65); }
+      sampleAcc+=DT;
+      if(sampleAcc>=0.1){ sampleAcc-=0.1; const src=sources(t); bufN[bi]=V(el.x,el.y,src); bufF[bi]=V(far.x,far.y,src); bi=(bi+1)%N; }
+    }
+    events=events.filter(e=>t-e.t0<80);
+  }
+  function drawNeuron(ctx){
+    const {x0,yTop,ySoma,yAx}=geo;
+    ctx.strokeStyle=C.ink; ctx.fillStyle=C.ink; ctx.lineCap='round';
+    // apical dendrite
+    ctx.lineWidth=6; ctx.beginPath(); ctx.moveTo(x0,ySoma-10); ctx.lineTo(x0,yTop+16); ctx.stroke();
+    ctx.lineWidth=3; ctx.beginPath();
+    [[-34,-22],[30,-26],[-14,-34],[14,-30]].forEach(([dx,dy])=>{ ctx.moveTo(x0,yTop+18); ctx.lineTo(x0+dx,yTop+18+dy); });
+    ctx.moveTo(x0,yTop+80); ctx.lineTo(x0-26,yTop+58); ctx.moveTo(x0,yTop+110); ctx.lineTo(x0+28,yTop+86);
+    ctx.stroke();
+    // basal dendrites
+    ctx.lineWidth=3; ctx.beginPath();
+    [[-48,28],[-30,46],[46,30],[26,48]].forEach(([dx,dy])=>{ ctx.moveTo(x0+(dx<0?-10:10),ySoma+8); ctx.lineTo(x0+dx,ySoma+dy); });
+    ctx.stroke();
+    // soma
+    ctx.beginPath(); ctx.moveTo(x0,ySoma-22); ctx.lineTo(x0-19,ySoma+14); ctx.lineTo(x0+19,ySoma+14); ctx.closePath(); ctx.fill();
+    // axon
+    ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x0,ySoma+14); ctx.lineTo(x0,yAx); ctx.stroke();
+    // presynaptic terminal
+    ctx.lineWidth=2; ctx.strokeStyle=C.muted; ctx.beginPath(); ctx.moveTo(x0+70,yTop-6); ctx.quadraticCurveTo(x0+30,yTop,x0+12,yTop+10); ctx.stroke();
+    ctx.fillStyle=C.muted; ctx.beginPath(); ctx.arc(x0+10,yTop+11,4.5,0,7); ctx.fill();
+    ctx.font='500 11px '+getComputedStyle(document.body).getPropertyValue('--f-mono');
+  }
+  function label(ctx,txt,x,y,color,align){ ctx.fillStyle=color||C.muted; ctx.textAlign=align||'left'; ctx.fillText(txt,x,y); }
+  function draw(){
+    const ctx=st.ctx, {w,h}=st; const src=sources(t);
+    ctx.fillStyle=C.neutral; ctx.fillRect(0,0,w,h);
+    const anyActive=src.some(s=>Math.abs(s.q)>0.01);
+    if(anyActive) drawHeat(st,heat,7,(x,y)=>compress(V(x,y,src),0.02));
+    drawNeuron(ctx);
+    const {x0,yTop,ySoma}=geo;
+    // intracellular current along dendrite
+    const ep=src.length? src.filter(s=>s.q<0 && Math.abs(s.y-(yTop+14))<1)[0]:null;
+    if(ep){ const I=-ep.q; const n=7; ctx.fillStyle=rgb(C.posRGB,Math.min(1,I*1.2));
+      for(let k=0;k<n;k++){ const f=((k/n)+t*0.02)%1; const y=yTop+20+f*(ySoma-yTop-44); ctx.beginPath(); ctx.arc(x0,y,2.6,0,7); ctx.fill(); } }
+    // AP glow
+    for(const s of src){ if(s.q<-1){ ctx.fillStyle=rgb(C.accentRGB,0.35); ctx.beginPath(); ctx.arc(s.x,s.y,12,0,7); ctx.fill(); ctx.fillStyle=C.accent; ctx.beginPath(); ctx.arc(s.x,s.y,4,0,7); ctx.fill(); } }
+    // extracellular particles following -grad V (positive charge flow)
+    const maxQ=src.reduce((m,s)=>Math.max(m,s.q),0);
+    if(maxQ>0.08 && particles.length<160){
+      const pos=src.filter(s=>s.q>0); for(let k=0;k<3;k++){ const s=pos[Math.floor(Math.random()*pos.length)]; const a=Math.random()*6.28; particles.push({x:s.x+Math.cos(a)*12,y:s.y+Math.sin(a)*12,life:0}); }
+    }
+    ctx.fillStyle=rgb(C.inkRGB,0.55);
+    particles=particles.filter(p=>{
+      let ex=0,ey=0,near=false;
+      for(const s of src){ const dx=p.x-s.x, dy=p.y-s.y; const r2=dx*dx+dy*dy+25; const r3=r2*Math.sqrt(r2); ex+=s.q*dx/r3; ey+=s.q*dy/r3; if(s.q<0&&r2<120) near=true; }
+      const m=Math.hypot(ex,ey); if(m<1e-7||near||p.life>220) return false;
+      const sp=playing?(slow?0.7:2.2):0; p.x+=ex/m*sp; p.y+=ey/m*sp; p.life++;
+      if(p.x<0||p.y<0||p.x>w||p.y>h) return false;
+      ctx.globalAlpha=Math.max(0,1-p.life/220); ctx.beginPath(); ctx.arc(p.x,p.y,1.8,0,7); ctx.fill(); ctx.globalAlpha=1; return true;
+    });
+    // sink / source markers
+    for(const s of src){
+      if(Math.abs(s.q)<0.12) continue;
+      if(s.q<-1) continue;
+      ctx.fillStyle=s.q<0?C.neg:C.pos; ctx.strokeStyle=C.surface; ctx.lineWidth=1.5;
+      const ox=s.q<0?-26:(s.x<x0?-20:s.x>x0?20:-24);
+      ctx.beginPath(); ctx.arc(s.x+ox,s.y,8,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=C.surface; ctx.font='700 12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(s.q<0?'−':'+',s.x+ox,s.y+0.5); ctx.textBaseline='alphabetic';
+    }
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono');
+    ctx.font='500 11px '+mono;
+    label(ctx,'apical dendrite',x0+40,yTop+62);
+    label(ctx,'soma',x0+26,ySoma+4);
+    label(ctx,'axon',x0+8,h-12);
+    label(ctx,'synapse',x0+74,yTop-2);
+    // far probe
+    ctx.strokeStyle=C.muted; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(far.x,far.y); ctx.lineTo(far.x,far.y-40); ctx.stroke();
+    ctx.fillStyle=C.surface; ctx.beginPath(); ctx.arc(far.x,far.y,5,0,7); ctx.fill(); ctx.stroke();
+    label(ctx,'distant probe',far.x,far.y+18,C.muted,'center');
+    label(ctx,'(toward the scalp)',far.x,far.y+31,C.muted,'center');
+    // electrode
+    ctx.strokeStyle=C.accent; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(el.x,el.y); ctx.lineTo(el.x+34,el.y-56); ctx.stroke();
+    ctx.fillStyle=C.accent; ctx.beginPath(); ctx.arc(el.x,el.y,5.5,0,7); ctx.fill();
+    ctx.fillStyle=C.surface; ctx.beginPath(); ctx.arc(el.x,el.y,2,0,7); ctx.fill();
+    label(ctx,'electrode (drag)',el.x+40,el.y-46,C.accent);
+    // scale bar
+    ctx.strokeStyle=C.ink; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(w-74,h-16); ctx.lineTo(w-24,h-16); ctx.stroke();
+    label(ctx,'100 µm',w-49,h-24,C.ink,'center');
+    drawTrace();
+  }
+  function drawTrace(){
+    const ctx=tr.ctx,{w,h}=tr; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono');
+    const top=h*0.3, bot=h*0.75, x0=96, x1=w-12;
+    ctx.strokeStyle=C.line; ctx.lineWidth=1;
+    [top,bot].forEach(y=>{ ctx.beginPath(); ctx.moveTo(x0,y); ctx.lineTo(x1,y); ctx.stroke(); });
+    ctx.font='500 11px '+mono; ctx.textAlign='left';
+    ctx.fillStyle=C.accent; ctx.fillText('electrode',12,top+4);
+    ctx.fillStyle=C.muted; ctx.fillText('distant ×30',12,bot+4);
+    const g=(h*0.2)/0.02;
+    function line(buf,y0,gain,color){
+      ctx.strokeStyle=color; ctx.lineWidth=1.6; ctx.beginPath();
+      for(let k=0;k<N;k++){ const v=buf[(bi+k)%N]; const x=x0+(x1-x0)*k/(N-1); const y=y0-Math.max(-h*0.22,Math.min(h*0.22,v*gain)); k?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+      ctx.stroke();
+    }
+    line(bufN,top,g,C.accent); line(bufF,bot,g*30,C.muted);
+    ctx.fillStyle=C.muted; ctx.textAlign='right'; ctx.fillText('last 80 ms  ·  up = positive',x1,h-6);
+  }
+  const stop=rafLoop(dt=>{
+    step(dt); draw(); frame++;
+    if(frame%12===0){
+      const {x0,ySoma}=geo; $('#m1dist',root).textContent=Math.round(Math.hypot(el.x-x0,el.y-ySoma)*UM)+' µm';
+      let pk=0,pf=0; for(let k=0;k<N;k++){ pk=Math.max(pk,Math.abs(bufN[k])); pf=Math.max(pf,Math.abs(bufF[k])); }
+      $('#m1pk',root).textContent=(pk*1000).toFixed(1)+' a.u.'; $('#m1pf',root).textContent=(pf*1000).toFixed(2)+' a.u.';
+    }
+  });
+  return ()=>{ stop(); st.destroy(); tr.destroy(); };
+}
+
+/* =========================================================================
+   LAB 2: SYNCHRONY AND SUMMATION
+   Each cell contributes a 10 Hz postsynaptic oscillation with a phase.
+   Summed amplitude = |sum exp(i*phase)|: about N if aligned, about sqrt(N) if random.
+   ========================================================================= */
+function labSynchrony(root){
+  const NVALS=[10,30,100,300,1000,3000];
+  root.innerHTML = `
+  <div class="grid2" id="s2cards"></div>
+  <div class="panel" style="display:flex;flex-wrap:wrap;gap:16px 32px;align-items:center">
+    <div class="readout"><span class="eyebrow">Ratio B : A</span><span class="v" id="s2ratio" style="font-size:22px">0</span></div>
+    <p style="flex:1;min-width:240px;color:var(--muted)" id="s2msg"></p>
+    <div class="chips"><button class="chip" id="s2reset" type="button">Reset to 1,000 vs 100</button><label class="check"><input type="checkbox" id="s2pause"> Pause</label></div>
+  </div>`;
+  const rnd=seeded(7); const U=new Float32Array(3000).map(()=>rnd()*2-1);
+  const rnd2=seeded(99); const U2=new Float32Array(3000).map(()=>rnd2()*2-1);
+  const sc=[{name:'A', ni:4, sync:0, u:U},{name:'B', ni:2, sync:92, u:U2}];
+  const cards=$('#s2cards',root);
+  cards.innerHTML=sc.map((s,i)=>`
+    <div class="lab">
+      <div class="lab-bar"><b style="font-family:var(--f-display);font-size:17px">Population ${s.name}</b><span class="grow"></span><span class="mono" id="s2amp${i}" style="font-size:13px"></span></div>
+      <div class="stage scroll"><canvas id="s2cv${i}" aria-label="Population ${s.name} traces"></canvas></div>
+      <div class="controls" style="grid-template-columns:1fr">
+        <div class="ctl"><label for="s2n${i}">Active neurons <output id="s2no${i}"></output></label><input type="range" id="s2n${i}" min="0" max="5" step="1" value="${s.ni}"></div>
+        <div class="ctl"><label for="s2s${i}">Synchrony <output id="s2so${i}"></output></label><input type="range" id="s2s${i}" min="0" max="100" step="1" value="${s.sync}"></div>
+      </div>
+    </div>`).join('');
+  function amp(s){ const N=NVALS[s.ni]; let re=0,im=0; const spread=Math.PI*(1-s.sync/100); for(let k=0;k<N;k++){ const p=s.u[k]*spread; re+=Math.cos(p); im+=Math.sin(p);} return {N,R:Math.hypot(re,im),ph:Math.atan2(im,re),spread}; }
+  const cvs=sc.map((s,i)=>setupCanvas($('#s2cv'+i,root), w=>Math.max(220,Math.min(280,w*0.62))));
+  let time=0, paused=reduceMotion; $('#s2pause',root).checked=paused;
+  function update(){
+    sc.forEach((s,i)=>{ s.a=amp(s); $('#s2no'+i,root).textContent=s.a.N.toLocaleString(); $('#s2so'+i,root).textContent=s.sync+'%';
+      $('#s2amp'+i,root).textContent=`sum = ${s.a.R.toFixed(0)}× one cell`; });
+    const r=sc[1].a.R/Math.max(1e-9,sc[0].a.R);
+    $('#s2ratio',root).textContent=(r>=1? r.toFixed(1)+'×' : '1 : '+(1/r).toFixed(1));
+    $('#s2msg',root).textContent=`A: ${sc[0].a.N.toLocaleString()} cells at ${sc[0].sync}% synchrony sum to ${sc[0].a.R.toFixed(0)}. B: ${sc[1].a.N.toLocaleString()} cells at ${sc[1].sync}% sum to ${sc[1].a.R.toFixed(0)}. Random phases grow like √N (√${sc[0].a.N.toLocaleString()} ≈ ${Math.sqrt(sc[0].a.N).toFixed(0)}); aligned phases grow like N.`;
+  }
+  sc.forEach((s,i)=>{ $('#s2n'+i,root).oninput=e=>{s.ni=+e.target.value; update();}; $('#s2s'+i,root).oninput=e=>{s.sync=+e.target.value; update();}; });
+  $('#s2reset',root).onclick=()=>{ sc[0].ni=4; sc[0].sync=0; sc[1].ni=2; sc[1].sync=92; sc.forEach((s,i)=>{$('#s2n'+i,root).value=s.ni; $('#s2s'+i,root).value=s.sync;}); update(); };
+  $('#s2pause',root).onchange=e=>paused=e.target.checked;
+  update();
+  function draw(){
+    const ymax=Math.max(8,sc[0].a.R,sc[1].a.R)*1.15;
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono');
+    sc.forEach((s,i)=>{
+      const {ctx,w,h}=cvs[i]; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+      const f=10, win=0.4; const x0=44, x1=w-10;
+      ctx.font='500 10.5px '+mono; ctx.fillStyle=C.muted; ctx.textAlign='left';
+      ctx.fillText('5 example cells',x0,14);
+      const rowH=(h*0.42-20)/5;
+      for(let k=0;k<5;k++){
+        const y0=22+rowH*(k+.5); const p=s.u[k]*s.a.spread;
+        ctx.strokeStyle=rgb(C.inkRGB,0.55); ctx.lineWidth=1.2; ctx.beginPath();
+        for(let x=x0;x<=x1;x+=2){ const tt=time+(x-x0)/(x1-x0)*win; const y=y0-Math.sin(2*Math.PI*f*tt+p)*rowH*0.38; x===x0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+        ctx.stroke();
+      }
+      const top=h*0.46, base=top+(h-top-22)/2, half=(h-top-22)/2;
+      ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(x0,base); ctx.lineTo(x1,base); ctx.stroke();
+      ctx.setLineDash([3,4]); [half,-half].forEach(d=>{ctx.beginPath(); ctx.moveTo(x0,base-d); ctx.lineTo(x1,base-d); ctx.stroke();}); ctx.setLineDash([]);
+      ctx.fillStyle=C.muted; ctx.textAlign='right'; ctx.fillText('+'+ymax.toFixed(0),x0-6,base-half+4); ctx.fillText('0',x0-6,base+4); ctx.fillText('−'+ymax.toFixed(0),x0-6,base+half+4);
+      ctx.textAlign='left'; ctx.fillStyle=C.accent; ctx.fillText('summed signal (shared scale)',x0,top+2);
+      ctx.strokeStyle=C.accent; ctx.lineWidth=2.2; ctx.beginPath();
+      for(let x=x0;x<=x1;x+=2){ const tt=time+(x-x0)/(x1-x0)*win; const y=base-Math.sin(2*Math.PI*f*tt+s.a.ph)*s.a.R/ymax*half; x===x0?ctx.moveTo(x,y):ctx.lineTo(x,y); }
+      ctx.stroke();
+      ctx.fillStyle=C.muted; ctx.textAlign='right'; ctx.fillText('400 ms',x1,h-6);
+    });
+  }
+  const stop=rafLoop(dt=>{ if(!paused) time+=dt/1000*0.25; draw(); });
+  return ()=>{ stop(); cvs.forEach(c=>c.destroy()); };
+}
+
+/* =========================================================================
+   LAB 3: OPEN AND CLOSED FIELDS
+   Geometry in model units (700 wide), drawn with a scale factor.
+   ========================================================================= */
+function labFields(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">${seg('f3arr',[['open','Parallel pyramidal cells'],['stellate','Stellate cell'],['nucleus','Radial nucleus'],['random','Random orientations']],'open')}</div>
+    <div class="split">
+      <div class="stage"><canvas id="f3cv" aria-label="Potential map around a cell arrangement"></canvas></div>
+      <div class="stage scroll"><canvas id="f3fo" aria-label="Potential versus distance for each arrangement"></canvas></div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Field type</span><span class="v" id="f3type">Open</span></div>
+      <div class="readout"><span class="eyebrow">Potential at probe</span><span class="v" id="f3val">0</span></div>
+      <div class="readout"><span class="eyebrow">Probe distance</span><span class="v" id="f3dist">0</span></div>
+      <div class="legend"><span>−</span><span class="bar" style="background:${legendCSS()}"></span><span>+</span></div>
+    </div>
+  </div>`;
+  const cv=$('#f3cv',root), fo=$('#f3fo',root);
+  const st=setupCanvas(cv,w=>Math.max(300,Math.min(440,w*0.82)));
+  const fst=setupCanvas(fo,w=>Math.max(260,Math.min(440,w*0.82)));
+  const heat=makeHeat(); let arr='open'; let probe={u:0,v:-150}; // model units, origin = center
+  function build(a){
+    const cells=[]; // each {sx,sy, kx,ky} source (soma) and sink (dendrite end), unit current
+    if(a==='open'){ for(let i=-4;i<=4;i++) cells.push({sx:i*30,sy:40,kx:i*30,ky:-50}); }
+    if(a==='random'){ const r=seeded(5); for(let i=-4;i<=4;i++){ const ang=r()*Math.PI*2; cells.push({sx:i*30,sy:0,kx:i*30+Math.cos(ang)*90,ky:Math.sin(ang)*90}); } }
+    if(a==='stellate'){ const n=10; for(let k=0;k<n;k++){ const ang=k/n*Math.PI*2; cells.push({sx:0,sy:0,kx:Math.cos(ang)*70,ky:Math.sin(ang)*70,w:0.9}); } }
+    if(a==='nucleus'){ const n=12; for(let k=0;k<n;k++){ const ang=k/n*Math.PI*2+0.2; cells.push({sx:Math.cos(ang)*36,sy:Math.sin(ang)*36,kx:Math.cos(ang)*110,ky:Math.sin(ang)*110}); } }
+    return cells;
+  }
+  const S0=8;
+  function Vat(cells,u,v){ let s=0; for(const c of cells){ const w=c.w||1; s+=w*(1/Math.hypot(u-c.sx,v-c.sy,S0)-1/Math.hypot(u-c.kx,v-c.ky,S0)); } return s; }
+  const falloff={};
+  ['open','stellate','nucleus','random'].forEach(a=>{ const cells=build(a); const pts=[]; for(let i=0;i<=60;i++){ const d=60*Math.pow(3000/60,i/60); pts.push([d, Math.abs(Vat(cells,0,-d))+1e-12]); } falloff[a]=pts; });
+  let cells=build(arr);
+  function sc(){ return Math.min(st.w,st.h*1.05)/440; }
+  function toPx(u,v){ const s=sc(); return [st.w/2+u*s, st.h*0.52+v*s]; }
+  function toU(x,y){ const s=sc(); return [(x-st.w/2)/s,(y-st.h*0.52)/s]; }
+  function draw(){
+    const ctx=st.ctx,{w,h}=st; ctx.fillStyle=C.neutral; ctx.fillRect(0,0,w,h);
+    drawHeat(st,heat,4,(x,y)=>{ const [u,v]=toU(x,y); return compress(Vat(cells,u,v),0.12); });
+    // contour-ish iso lines are skipped; draw cells
+    ctx.lineCap='round';
+    for(const c of cells){ const [a,b]=toPx(c.sx,c.sy), [p,q]=toPx(c.kx,c.ky);
+      ctx.strokeStyle=C.ink; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(p,q); ctx.stroke();
+      ctx.fillStyle=C.ink; ctx.beginPath(); ctx.arc(a,b,4.5,0,7); ctx.fill(); }
+    if(arr==='stellate'){ const [a,b]=toPx(0,0); ctx.fillStyle=C.ink; ctx.beginPath(); ctx.arc(a,b,8,0,7); ctx.fill(); }
+    if(arr==='open'||arr==='random'){ const mono=getComputedStyle(document.body).getPropertyValue('--f-mono'); ctx.font='500 11px '+mono; ctx.fillStyle=C.muted; ctx.textAlign='left'; if(arr==='open'){ const [a,b]=toPx(-128,-52); ctx.textAlign='right'; ctx.fillText('dendrites (sinks)',a-8,b+4); const [c,d]=toPx(-128,40); ctx.fillText('somata (sources)',c-8,d+4); } }
+    // probe
+    const [px,py]=toPx(probe.u,probe.v);
+    ctx.strokeStyle=C.accent; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+26,py-44); ctx.stroke();
+    ctx.fillStyle=C.accent; ctx.beginPath(); ctx.arc(px,py,6,0,7); ctx.fill();
+    const val=Vat(cells,probe.u,probe.v);
+    $('#f3val',root).textContent=(val>=0?'+':'')+val.toFixed(4);
+    $('#f3dist',root).textContent=Math.round(Math.hypot(probe.u,probe.v))+' units';
+    $('#f3type',root).textContent=arr==='open'?'Open field':arr==='random'?'Mostly cancels':'Closed field';
+    drawFalloff();
+  }
+  function drawFalloff(){
+    const ctx=fst.ctx,{w,h}=fst; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono'); ctx.font='500 10.5px '+mono;
+    const L=48,R=w-14,T=34,B=h-40;
+    const lx=d=>L+(Math.log10(d)-Math.log10(60))/(Math.log10(3000)-Math.log10(60))*(R-L);
+    const ymin=-8, ymaxL=0; const ly=v=>T+(ymaxL-Math.log10(v))/(ymaxL-ymin)*(B-T);
+    ctx.fillStyle=C.ink; ctx.textAlign='left'; ctx.font='600 12px '+getComputedStyle(document.body).getPropertyValue('--f-body'); ctx.fillText('How fast each field fades with distance',L-36,18);
+    ctx.font='500 10.5px '+mono;
+    ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.fillStyle=C.muted; ctx.textAlign='right';
+    for(let e=0;e>=ymin;e-=3){ const y=ly(Math.pow(10,e)); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(R,y); ctx.stroke(); ctx.fillText('1e'+e,L-6,y+3); }
+    ctx.textAlign='center'; [100,300,1000,3000].forEach(d=>{ const x=lx(d); ctx.beginPath(); ctx.moveTo(x,T); ctx.lineTo(x,B); ctx.stroke(); ctx.fillText(d,x,B+14); });
+    ctx.fillText('distance above the cells (units, log)',(L+R)/2,B+30);
+    const names={open:'pyramidal',stellate:'stellate',nucleus:'nucleus',random:'random'}; const ends=[];
+    ['random','nucleus','stellate','open'].sort((a,b)=>(a===arr)-(b===arr)).forEach(a=>{
+      const pts=falloff[a]; const on=a===arr;
+      ctx.strokeStyle=on?C.accent:rgb(C.mutedRGB,0.55); ctx.lineWidth=on?2.6:1.4; ctx.beginPath();
+      pts.forEach(([d,v],i)=>{ const x=lx(d), y=Math.min(B,ly(v)); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke();
+      ends.push({a,on,y:Math.min(B-4,ly(pts[pts.length-1][1]))});
+    });
+    ends.sort((p,q)=>p.y-q.y); for(let i=1;i<ends.length;i++) if(ends[i].y-ends[i-1].y<13) ends[i].y=ends[i-1].y+13;
+    ctx.textAlign='right'; ends.forEach(e=>{ ctx.fillStyle=e.on?C.accent:C.muted; ctx.fillText(names[e.a],R-2,e.y-6); });
+  }
+  bindSeg(root,'f3arr',v=>{ arr=v; cells=build(arr); draw(); });
+  let drag=false;
+  cv.addEventListener('pointerdown',e=>{ drag=true; cv.setPointerCapture(e.pointerId); const p=ptr(e,cv); const [u,v]=toU(p.x,p.y); probe={u,v}; draw(); });
+  cv.addEventListener('pointermove',e=>{ if(!drag) return; const p=ptr(e,cv); const [u,v]=toU(p.x,p.y); probe={u,v}; draw(); });
+  cv.addEventListener('pointerup',()=>drag=false);
+  st.onresize=draw; fst.onresize=draw; themeListeners.add(draw); draw();
+  return ()=>{ st.destroy(); fst.destroy(); themeListeners.delete(draw); };
+}
+
+/* =========================================================================
+   LAB 4: ORIENTATION AND FOLDING (coronal slice)
+   Dipoles lie along the folded cortical surface, oriented along its normal.
+   ========================================================================= */
+function labFolding(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">
+      <div class="chips" id="g4pre">
+        <button class="chip" data-p="crown" aria-pressed="true" type="button">Gyral crown</button>
+        <button class="chip" data-p="wall" type="button">Sulcal wall</button>
+        <button class="chip" data-p="fundus" type="button">Fundus</button>
+      </div>
+      <span class="grow"></span>
+      <span style="font-size:12.5px;color:var(--muted)">or click anywhere on the cortex</span>
+    </div>
+    <div class="stage"><canvas id="g4cv" aria-label="Coronal slice of a folded cortex with a dipole"></canvas></div>
+    <div class="stage scroll"><canvas id="g4sp" aria-label="Potential along the scalp"></canvas></div>
+    <div class="controls">
+      <div class="ctl"><label for="g4w">Active patch width <output id="g4wo"></output></label><input type="range" id="g4w" min="0" max="60" value="0"></div>
+      <div class="ctl"><span class="lbl">Synaptic input</span>${seg('g4pol',[['sup','Superficial layers'],['deep','Deep layers']],'sup')}</div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Orientation</span><span class="v" id="g4or">radial</span></div>
+      <div class="readout"><span class="eyebrow">Depth below scalp</span><span class="v" id="g4dep">0 mm</span></div>
+      <div class="readout"><span class="eyebrow">Scalp maximum and minimum</span><span class="v" id="g4mm">0</span></div>
+    </div>
+  </div>`;
+  const cv=$('#g4cv',root), sp=$('#g4sp',root);
+  const st=setupCanvas(cv,w=>Math.max(300,Math.min(480,w*0.6)));
+  const pst=setupCanvas(sp,()=>170);
+  const heat=makeHeat();
+  const SULCI=[-50,-20,12,44], WD=3.4, DEG=Math.PI/180;
+  let G, sel=0, widthMM=0, pol=-1, selTheta=-35;
+  function build(){
+    const {w,h}=st; const Rs=Math.min(w*0.46,h*0.9); const cx=w/2, cy=h*0.97;
+    const Rc=Rs*0.84, D=Rs*0.15; const pts=[];
+    for(let i=0;i<=1200;i++){ const th=-76+152*i/1200; let r=Rc; for(const s of SULCI) r-=D*Math.exp(-Math.pow((th-s)/WD,2)); pts.push({th, x:cx+r*Math.sin(th*DEG), y:cy-r*Math.cos(th*DEG)}); }
+    let cum=0; pts.forEach((p,i)=>{ if(i) cum+=Math.hypot(p.x-pts[i-1].x,p.y-pts[i-1].y); p.s=cum; });
+    pts.forEach((p,i)=>{ const a=pts[Math.max(0,i-1)], b=pts[Math.min(pts.length-1,i+1)]; const tx=b.x-a.x, ty=b.y-a.y, m=Math.hypot(tx,ty)||1; p.nx=ty/m; p.ny=-tx/m; });
+    // ensure outward normal at crown (between sulci)
+    const c=pts[Math.round((0-(-76))/152*1200)]; if(c.nx*(c.x-cx)+c.ny*(c.y-cy)<0) pts.forEach(p=>{p.nx=-p.nx; p.ny=-p.ny;});
+    const elec=[]; for(let k=0;k<41;k++){ const th=-80+160*k/40; elec.push({th,x:cx+Rs*Math.sin(th*DEG),y:cy-Rs*Math.cos(th*DEG)}); }
+    G={pts,Rs,cx,cy,elec,mmPerPx:90/Rs};
+    sel=idxOfTheta(selTheta);
+  }
+  function idxOfTheta(th){ return Math.max(0,Math.min(1200,Math.round((th+76)/152*1200))); }
+  function dipoles(){
+    const p0=G.pts[sel]; const W=widthMM/G.mmPerPx; const out=[];
+    if(W<1){ out.push({x:p0.x,y:p0.y,mx:p0.nx*pol*12,my:p0.ny*pol*12}); return out; }
+    for(let i=0;i<G.pts.length;i+=2){ const p=G.pts[i]; if(Math.abs(p.s-p0.s)<=W){ const seglen=(G.pts[Math.min(i+2,1200)].s-p.s)||1; const k=12*seglen/ (2*W) * 6; out.push({x:p.x,y:p.y,mx:p.nx*pol*k,my:p.ny*pol*k}); } }
+    return out;
+  }
+  // potential of 2D dipole set using 3D point-dipole law (homogeneous medium)
+  function Vd(dp,x,y){ let v=0; for(const d of dp){ const dx=x-d.x, dy=y-d.y; const r2=dx*dx+dy*dy+16; v+=(d.mx*dx+d.my*dy)/(r2*Math.sqrt(r2)); } return v; }
+  let ref=1;
+  function calibrate(){ const save=[sel,widthMM,pol]; sel=idxOfTheta(-35); widthMM=0; pol=1; const dp=dipoles(); ref=Math.max(...G.elec.map(e=>Math.abs(Vd(dp,e.x,e.y)))); [sel,widthMM,pol]=save; }
+  let scalpV=[];
+  function draw(){
+    const ctx=st.ctx,{w,h}=st; const {pts,Rs,cx,cy}=G;
+    ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const dp=dipoles();
+    // field map, masked to head
+    drawHeat(st,heat,5,(x,y)=>{ const r=Math.hypot(x-cx,y-cy); if(r>Rs) return null; return compress(Vd(dp,x,y)/ref,25); },235);
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,Rs,Math.PI,2*Math.PI); ctx.lineTo(cx+Rs,cy); ctx.closePath(); ctx.clip();
+    // tissues
+    ctx.fillStyle=rgb(C.inkRGB,0.07); ctx.beginPath(); ctx.arc(cx,cy,Rs,0,7); ctx.arc(cx,cy,Rs*0.955,0,7,true); ctx.fill();
+    ctx.fillStyle=rgb(C.inkRGB,0.2); ctx.beginPath(); ctx.arc(cx,cy,Rs*0.955,0,7); ctx.arc(cx,cy,Rs*0.9,0,7,true); ctx.fill();
+    // gray matter ribbon
+    const T=Rs*0.045;
+    ctx.fillStyle=rgb(C.inkRGB,0.13); ctx.beginPath();
+    pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+    for(let i=pts.length-1;i>=0;i--){ const p=pts[i]; ctx.lineTo(p.x-p.nx*T,p.y-p.ny*T); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=rgb(C.inkRGB,0.6); ctx.lineWidth=1.4; ctx.beginPath(); pts.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y)); ctx.stroke();
+    ctx.strokeStyle=rgb(C.inkRGB,0.3); ctx.lineWidth=1; ctx.beginPath(); pts.forEach((p,i)=>{ const x=p.x-p.nx*T,y=p.y-p.ny*T; i?ctx.lineTo(x,y):ctx.moveTo(x,y);}); ctx.stroke();
+    ctx.restore();
+    ctx.strokeStyle=rgb(C.inkRGB,0.7); ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,Rs,Math.PI,2*Math.PI); ctx.stroke();
+    // dipole arrows
+    ctx.strokeStyle=C.ink; ctx.fillStyle=C.ink; ctx.lineWidth=1.6;
+    const showEvery=Math.max(1,Math.floor(dp.length/24));
+    dp.forEach((d,i)=>{ if(i%showEvery) return; const m=Math.hypot(d.mx,d.my)||1; const L=dp.length===1?30:14; const ux=d.mx/m, uy=d.my/m; arrow(ctx,d.x-ux*L/2,d.y-uy*L/2,d.x+ux*L/2,d.y+uy*L/2,dp.length===1?8:5); });
+    // electrodes
+    scalpV=G.elec.map(e=>Vd(dp,e.x,e.y)/ref);
+    G.elec.forEach((e,k)=>{ ctx.fillStyle=rgb(cmap(scalpV[k]/Math.max(1,Math.max(...scalpV.map(Math.abs))))); ctx.strokeStyle=C.surface; ctx.lineWidth=1.2; ctx.beginPath(); ctx.arc(e.x,e.y,5,0,7); ctx.fill(); ctx.stroke(); });
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono'); ctx.font='500 11px '+mono; ctx.fillStyle=C.muted; ctx.textAlign='left';
+    const lab=(t,r,th)=>{ ctx.fillText(t,cx+r*Math.sin(th*DEG)+6,cy-r*Math.cos(th*DEG)); };
+    lab('skull',Rs*0.915,-86); lab('cortex',Rs*0.8,-80); ctx.textAlign='right'; ctx.fillText('scalp',cx-Rs*1.02*Math.sin(62*DEG)-4,cy-Rs*1.02*Math.cos(62*DEG)); ctx.textAlign='left';
+    ctx.textAlign='center'; ctx.fillText('left',cx-Rs*0.95,cy-6); ctx.fillText('right',cx+Rs*0.95,cy-6);
+    // readouts
+    const p=pts[sel]; const rx=(p.x-cx)/Math.hypot(p.x-cx,p.y-cy), ry=(p.y-cy)/Math.hypot(p.x-cx,p.y-cy);
+    const cos=p.nx*rx+p.ny*ry; const ang=Math.round(Math.acos(Math.max(-1,Math.min(1,Math.abs(cos))))/DEG);
+    const kind=ang<25?'radial':ang>60?'tangential':'oblique';
+    $('#g4or',root).textContent=`${kind} (${ang}° from radial)`;
+    $('#g4dep',root).textContent=Math.round((Rs-Math.hypot(p.x-cx,p.y-cy))*G.mmPerPx)+' mm';
+    let mx=-1e9,mn=1e9,imx=0,imn=0; scalpV.forEach((v,i)=>{ if(v>mx){mx=v;imx=i;} if(v<mn){mn=v;imn=i;} });
+    $('#g4mm',root).textContent=`+${Math.max(0,mx).toFixed(2)} at ${Math.round(G.elec[imx].th)}°, ${Math.min(0,mn).toFixed(2)} at ${Math.round(G.elec[imn].th)}°`;
+    $('#g4wo',root).textContent=widthMM? widthMM+' mm each way':'single point';
+    drawPlot(p);
+  }
+  function drawPlot(p){
+    const ctx=pst.ctx,{w,h}=pst; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono'); ctx.font='500 10.5px '+mono;
+    const L=52,R=w-14,T=22,B=h-34; const mid=(T+B)/2;
+    const vmax=Math.max(1.05, ...scalpV.map(v=>Math.abs(v)*1.1));
+    const xs=th=>L+(th+80)/160*(R-L), ys=v=>mid-v/vmax*(B-T)/2;
+    ctx.strokeStyle=C.line; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(L,mid); ctx.lineTo(R,mid); ctx.stroke();
+    ctx.fillStyle=C.muted; ctx.textAlign='right'; ctx.fillText('+'+vmax.toFixed(1),L-6,T+4); ctx.fillText('0',L-6,mid+4); ctx.fillText('−'+vmax.toFixed(1),L-6,B+4);
+    ctx.textAlign='left'; ctx.fillText('scalp potential, relative to a single crown dipole',L,12);
+    // filled curve split by sign
+    ['pos','neg'].forEach(k=>{ ctx.fillStyle=rgb(C[k+'RGB'],0.28); ctx.beginPath(); ctx.moveTo(xs(-80),mid);
+      G.elec.forEach((e,i)=>{ const v=scalpV[i]; ctx.lineTo(xs(e.th), ys(k==='pos'?Math.max(0,v):Math.min(0,v))); }); ctx.lineTo(xs(80),mid); ctx.closePath(); ctx.fill(); });
+    ctx.strokeStyle=C.ink; ctx.lineWidth=2; ctx.beginPath(); G.elec.forEach((e,i)=>{ const x=xs(e.th), y=ys(scalpV[i]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); }); ctx.stroke();
+    // source position marker
+    ctx.strokeStyle=C.accent; ctx.setLineDash([4,4]); const sx=xs(Math.max(-80,Math.min(80,p.th))); ctx.beginPath(); ctx.moveTo(sx,T); ctx.lineTo(sx,B); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=C.accent; ctx.textAlign='center'; ctx.fillText('source',sx,B+14);
+    ctx.fillStyle=C.muted; ctx.textAlign='left'; ctx.fillText('left ear',L,B+28); ctx.textAlign='center'; ctx.fillText('vertex',xs(0),B+28); ctx.textAlign='right'; ctx.fillText('right ear',R,B+28);
+  }
+  function preset(p){
+    const s=SULCI[1];
+    selTheta = p==='crown'?-35 : p==='wall'? s+WD*0.72 : s;
+    sel=idxOfTheta(selTheta);
+    $$('#g4pre .chip',root).forEach(c=>c.setAttribute('aria-pressed',c.dataset.p===p));
+    draw();
+  }
+  $('#g4pre',root).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(b) preset(b.dataset.p); });
+  $('#g4w',root).oninput=e=>{ widthMM=+e.target.value; draw(); };
+  bindSeg(root,'g4pol',v=>{ pol=v==='sup'?-1:1; draw(); });
+  cv.addEventListener('pointerdown',e=>{ const q=ptr(e,cv); let best=-1,bd=900; G.pts.forEach((p,i)=>{ const d=(p.x-q.x)**2+(p.y-q.y)**2; if(d<bd){bd=d;best=i;} }); if(best>=0){ sel=best; selTheta=G.pts[best].th; $$('#g4pre .chip',root).forEach(c=>c.setAttribute('aria-pressed','false')); draw(); } });
+  st.onresize=()=>{ build(); calibrate(); draw(); }; pst.onresize=()=>{ if(G) draw(); };
+  build(); calibrate(); draw(); themeListeners.add(draw);
+  return ()=>{ st.destroy(); pst.destroy(); themeListeners.delete(draw); };
+}
+
+/* =========================================================================
+   LAB 5: THE VIEW FROM THE SCALP (spherical head, 10-20 electrodes)
+   Infinite homogeneous medium dipole; skull smearing is left for Module 2.
+   ========================================================================= */
+const E1020=[['Fp1',72,-18],['Fpz',72,0],['Fp2',72,18],['F7',72,-54],['F3',50,-40],['Fz',36,0],['F4',50,40],['F8',72,54],['T7',72,-90],['C3',36,-90],['Cz',0,0],['C4',36,90],['T8',72,90],['P7',72,-126],['P3',50,-140],['Pz',36,180],['P4',50,140],['P8',72,126],['O1',72,-162],['Oz',72,180],['O2',72,162]];
+function sph(colat,az){ const t=colat*Math.PI/180, p=az*Math.PI/180; return [Math.sin(t)*Math.sin(p), Math.sin(t)*Math.cos(p), Math.cos(t)]; }
+function labScalp(root){
+  const PRESETS={
+    motor:{name:'Hand motor cortex, gyral crown',colat:42,az:-62,depth:1.6,orient:'radial',dir:0},
+    sulcus:{name:'Central sulcus wall',colat:42,az:-62,depth:2.2,orient:'tangential',dir:90},
+    visual:{name:'Occipital pole',colat:78,az:180,depth:1.6,orient:'radial',dir:0},
+    auditory:{name:'Auditory cortex (temporal plane)',colat:88,az:-92,depth:3.2,orient:'tangential',dir:180},
+    deep:{name:'Deep source (thalamus-like)',colat:20,az:0,depth:6,orient:'radial',dir:0}
+  };
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar"><div class="chips" id="h5pre">${Object.entries(PRESETS).map(([k,p],i)=>`<button class="chip" data-p="${k}" aria-pressed="${i===0}" type="button">${p.name}</button>`).join('')}</div></div>
+    <div class="split">
+      <div class="stage"><canvas id="h5cv" aria-label="3D head with 10-20 electrodes; drag to rotate"></canvas><div class="tip" id="h5tip" hidden></div></div>
+      <div class="stage"><canvas id="h5tm" aria-label="Flat scalp map seen from above"></canvas><div class="tip" id="h5tip2" hidden></div></div>
+    </div>
+    <div class="lab-bar" style="border-top:1px solid var(--line);border-bottom:0">
+      <span class="eyebrow">View</span>
+      <div class="chips" id="h5view"><button class="chip" data-v="three" type="button">3/4</button><button class="chip" data-v="top" type="button">Top</button><button class="chip" data-v="front" type="button">Front</button><button class="chip" data-v="left" type="button">Left</button><button class="chip" data-v="right" type="button">Right</button><button class="chip" data-v="back" type="button">Back</button></div>
+      <span class="grow"></span>
+      <label class="check"><input type="checkbox" id="h5src" checked> Show source</label>
+      <label class="check"><input type="checkbox" id="h5auto"> Auto-scale colors</label>
+    </div>
+    <div class="controls" style="border-top:1px solid var(--line)">
+      <div class="ctl"><label for="h5area">Synchronous cortex <output id="h5areao"></output></label><input type="range" id="h5area" min="1" max="30" value="10"></div>
+      <div class="ctl"><label for="h5dep">Depth below scalp <output id="h5depo"></output></label><input type="range" id="h5dep" min="1.2" max="6.5" step="0.1" value="1.6"></div>
+      <div class="ctl"><label for="h5col">Angle from vertex <output id="h5colo"></output></label><input type="range" id="h5col" min="0" max="100" value="42"></div>
+      <div class="ctl"><label for="h5az">Azimuth (0 = nose, − = left) <output id="h5azo"></output></label><input type="range" id="h5az" min="-180" max="180" value="-62"></div>
+      <div class="ctl"><span class="lbl">Orientation</span>${seg('h5or',[['radial','Radial'],['tangential','Tangential']],'radial')}</div>
+      <div class="ctl"><label for="h5dir">Tangential direction <output id="h5diro"></output></label><input type="range" id="h5dir" min="0" max="355" step="5" value="0"></div>
+      <div class="ctl"><span class="lbl">Polarity</span><button class="btn" id="h5flip" type="button">Flip polarity</button></div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Nearest electrode to source</span><span class="v" id="h5near">C3</span></div>
+      <div class="readout"><span class="eyebrow">Largest response</span><span class="v" id="h5big">C3</span></div>
+      <div class="readout"><span class="eyebrow">Peak relative to reference source</span><span class="v" id="h5peak">1.00</span></div>
+      <div class="legend"><span>−</span><span class="bar" style="background:${legendCSS()}"></span><span>+</span></div>
+    </div>
+  </div>`;
+  const cv=$('#h5cv',root), tm=$('#h5tm',root), tip=$('#h5tip',root), tip2=$('#h5tip2',root);
+  const st=setupCanvas(cv,w=>Math.max(300,Math.min(440,w*0.92)));
+  const tst=setupCanvas(tm,w=>Math.max(300,Math.min(440,w*0.92)));
+  const tmHeat=makeHeat();
+  const S={...PRESETS.motor, area:10, sign:1, auto:false, showSrc:true};
+  let yaw=135*Math.PI/180, pitch=32*Math.PI/180;
+  // surface points
+  const PTS=[]; { const n=6500, ga=Math.PI*(3-Math.sqrt(5)); for(let i=0;i<n;i++){ const z=1-2*(i+.5)/n, r=Math.sqrt(1-z*z), th=ga*i; if(z>-0.32) PTS.push([r*Math.cos(th), r*Math.sin(th), z]); } }
+  const PV=new Float32Array(PTS.length);
+  const EL=E1020.map(([n,c,a])=>({n,p:sph(c,a),v:0}));
+  let src={r0:[0,0,1],m:[0,0,1]}, refPeak=1;
+  function srcFrom(s){
+    const r=1-s.depth/9; const u=sph(s.colat,s.az); const r0=u.map(x=>x*r);
+    let m;
+    if(s.orient==='radial') m=u.slice();
+    else { const t=s.colat*Math.PI/180, p=s.az*Math.PI/180;
+      const eth=[Math.cos(t)*Math.sin(p), Math.cos(t)*Math.cos(p), -Math.sin(t)];
+      const eph=[Math.cos(p), -Math.sin(p), 0];
+      const a=s.dir*Math.PI/180; m=[0,1,2].map(i=>Math.cos(a)*eth[i]+Math.sin(a)*eph[i]); }
+    const k=s.area/10*s.sign; return {r0, m:m.map(x=>x*k), u};
+  }
+  function Vp(P,sr){ const d=[P[0]-sr.r0[0],P[1]-sr.r0[1],P[2]-sr.r0[2]]; const r2=d[0]*d[0]+d[1]*d[1]+d[2]*d[2]+1e-4; return (sr.m[0]*d[0]+sr.m[1]*d[1]+sr.m[2]*d[2])/(r2*Math.sqrt(r2)); }
+  { const ref=srcFrom({...PRESETS.motor,area:10,sign:1}); refPeak=Math.max(...PTS.map(p=>Math.abs(Vp(p,ref)))); }
+  let scaleNow=1;
+  function compute(){
+    src=srcFrom(S);
+    let mx=0; for(let i=0;i<PTS.length;i++){ PV[i]=Vp(PTS[i],src); mx=Math.max(mx,Math.abs(PV[i])); }
+    EL.forEach(e=>e.v=Vp(e.p,src));
+    scaleNow=S.auto?mx:refPeak;
+    // readouts
+    let near=EL[0], nd=9, big=EL[0];
+    EL.forEach(e=>{ const d=Math.acos(Math.max(-1,Math.min(1,e.p[0]*src.u[0]+e.p[1]*src.u[1]+e.p[2]*src.u[2]))); if(d<nd){nd=d;near=e;} if(Math.abs(e.v)>Math.abs(big.v)) big=e; });
+    $('#h5near',root).textContent=near.n;
+    $('#h5big',root).textContent=`${big.n} (${big.v>=0?'+':'−'})`;
+    $('#h5peak',root).textContent=(mx/refPeak).toFixed(2)+'×';
+    $('#h5areao',root).textContent=S.area+' cm²';
+    $('#h5depo',root).textContent=S.depth.toFixed(1)+' cm';
+    $('#h5colo',root).textContent=Math.round(S.colat)+'°';
+    $('#h5azo',root).textContent=Math.round(S.az)+'°';
+    $('#h5diro',root).textContent=S.orient==='tangential'?S.dir+'°':'n/a';
+    $('#h5dir',root).disabled=S.orient!=='tangential';
+    draw3d(); drawTopo();
+  }
+  function rot(p){ const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+    const x=p[0]*cy-p[1]*sy, y=p[0]*sy+p[1]*cy, z=p[2]; return [x, y*cp-z*sp, y*sp+z*cp]; }
+  let proj=[];
+  function draw3d(){
+    const ctx=st.ctx,{w,h}=st; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const R=Math.min(w,h)*0.36, cx=w/2, cy=h*0.52;
+    const P=p=>{ const q=rot(p); return [cx+R*q[0], cy-R*q[2], q[1]]; };
+    // ears and nose behind
+    const ear=sgn=>P([sgn*1.0,0,-0.12]), nose=P([0,1.13,-0.08]);
+    const drawEar=e=>{ ctx.fillStyle=rgb(C.inkRGB,0.12); ctx.strokeStyle=rgb(C.inkRGB,0.4); ctx.lineWidth=1.2; ctx.beginPath(); ctx.ellipse(e[0],e[1],R*0.08,R*0.15,0,0,7); ctx.fill(); ctx.stroke(); };
+    [ear(-1),ear(1)].forEach(e=>{ if(e[2]>0) drawEar(e); });
+    const drawNose=()=>{ const a=P([-0.13,0.97,-0.02]), b=P([0.13,0.97,-0.02]); ctx.fillStyle=rgb(C.inkRGB,0.14); ctx.strokeStyle=rgb(C.inkRGB,0.45); ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(nose[0],nose[1]); ctx.lineTo(b[0],b[1]); ctx.closePath(); ctx.fill(); ctx.stroke(); };
+    if(nose[2]>0.1) drawNose();
+    // head sphere
+    const g=ctx.createRadialGradient(cx-R*0.3,cy-R*0.35,R*0.1,cx,cy,R);
+    g.addColorStop(0,rgb(C.neutralRGB)); g.addColorStop(1,rgb(C.inkRGB,0.18));
+    ctx.fillStyle=C.neutral; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fill();
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.fill();
+    // colored cap
+    const dot=R*0.052;
+    for(let i=0;i<PTS.length;i++){ const q=rot(PTS[i]); if(q[1]>0.02) continue; const face=-q[1];
+      const c=cmap(PV[i]/scaleNow); const sh=0.62+0.38*face; ctx.fillStyle=rgb([c[0]*sh+C.inkRGB[0]*0*(1-sh), c[1]*sh, c[2]*sh]);
+      ctx.fillRect(cx+R*q[0]-dot/2, cy-R*q[2]-dot/2, dot, dot); }
+    ctx.strokeStyle=rgb(C.inkRGB,0.35); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(cx,cy,R,0,7); ctx.stroke();
+    [ear(-1),ear(1)].forEach(e=>{ if(e[2]<=0) drawEar(e); });
+    if(nose[2]<=0.1) drawNose();
+    // source
+    if(S.showSrc){ const a=P(src.r0); const m=Math.hypot(...src.m)||1; const tipP=P(src.r0.map((x,i)=>x+src.m[i]/m*0.22));
+      ctx.strokeStyle=C.ink; ctx.fillStyle=C.ink; ctx.lineWidth=2.4; ctx.globalAlpha=a[2]>0?0.35:0.95;
+      arrow(ctx,a[0],a[1],tipP[0],tipP[1],8); ctx.beginPath(); ctx.arc(a[0],a[1],4,0,7); ctx.fill(); ctx.globalAlpha=1; }
+    // electrodes
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono');
+    proj=[]; ctx.font='600 9.5px '+mono; ctx.textAlign='center'; ctx.textBaseline='middle';
+    EL.map(e=>({e,q:P(e.p)})).sort((a,b)=>b.q[2]-a.q[2]).forEach(({e,q})=>{
+      if(q[2]>0.08) return; const r=Math.max(7,Math.min(11,R*0.06));
+      ctx.fillStyle=rgb(cmap(e.v/scaleNow)); ctx.strokeStyle=C.ink; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.arc(q[0],q[1],r,0,7); ctx.fill(); ctx.stroke();
+      ctx.fillStyle=C.ink; ctx.fillText(e.n,q[0],q[1]-r-6);
+      proj.push({e,x:q[0],y:q[1]});
+    });
+    ctx.textBaseline='alphabetic';
+    ctx.font='500 11px '+mono; ctx.fillStyle=C.muted; ctx.textAlign='left'; ctx.fillText('drag to rotate',12,h-12);
+  }
+  let tproj=[];
+  function drawTopo(){
+    const ctx=tst.ctx,{w,h}=tst; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const Rt=Math.min(w,h)/2-30, cx=w/2, cy=h/2+6;
+    drawHeat(tst,tmHeat,3,(x,y)=>{ const dx=(x-cx)/Rt, dy=(y-cy)/Rt; const rho=Math.hypot(dx,dy); if(rho>1) return null; const colat=rho*100, az=Math.atan2(dx,-dy)*180/Math.PI; return Vp(sph(colat,az),src)/scaleNow; });
+    ctx.strokeStyle=C.ink; ctx.lineWidth=1.6;
+    ctx.beginPath(); ctx.arc(cx,cy,Rt,0,7); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx-Rt*0.1,cy-Rt*0.995); ctx.lineTo(cx,cy-Rt*1.1); ctx.lineTo(cx+Rt*0.1,cy-Rt*0.995); ctx.stroke();
+    [-1,1].forEach(s=>{ ctx.beginPath(); ctx.ellipse(cx+s*Rt*1.03,cy,Rt*0.04,Rt*0.13,0,0,7); ctx.stroke(); });
+    const mono=getComputedStyle(document.body).getPropertyValue('--f-mono');
+    ctx.font='500 9.5px '+mono; ctx.textAlign='center';
+    tproj=[];
+    EL.forEach((e,i)=>{ const [n,c,a]=E1020[i]; const rho=c/100*Rt; const x=cx+rho*Math.sin(a*Math.PI/180), y=cy-rho*Math.cos(a*Math.PI/180);
+      ctx.fillStyle=C.ink; ctx.beginPath(); ctx.arc(x,y,2.6,0,7); ctx.fill(); ctx.fillText(n,x,y-6); tproj.push({e,x,y}); });
+    if(S.showSrc){ const c=Math.acos(src.u[2])*180/Math.PI, a=Math.atan2(src.u[0],src.u[1]); const rho=c/100*Rt; const x=cx+rho*Math.sin(a), y=cy-rho*Math.cos(a);
+      ctx.strokeStyle=C.ink; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x-6,y-6); ctx.lineTo(x+6,y+6); ctx.moveTo(x+6,y-6); ctx.lineTo(x-6,y+6); ctx.stroke(); }
+    ctx.fillStyle=C.muted; ctx.textAlign='left'; ctx.font='500 11px '+mono; ctx.fillText('seen from above, nose up',12,h-12);
+    ctx.textAlign='right'; ctx.fillText(S.auto?'auto-scaled':'fixed scale',w-12,h-12);
+  }
+  function hover(list,tipEl,cvEl){ return e=>{ const p=ptr(e,cvEl); let best=null,bd=196; list().forEach(o=>{ const d=(o.x-p.x)**2+(o.y-p.y)**2; if(d<bd){bd=d;best=o;} });
+      if(best){ tipEl.hidden=false; tipEl.style.left=best.x+'px'; tipEl.style.top=best.y+'px'; tipEl.textContent=`${best.e.n}  ${(best.e.v/refPeak>=0?'+':'')}${(best.e.v/refPeak).toFixed(2)}`; } else tipEl.hidden=true; }; }
+  let drag=null;
+  cv.addEventListener('pointerdown',e=>{ drag={x:e.clientX,y:e.clientY,yaw,pitch}; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove',e=>{ if(drag){ yaw=drag.yaw-(e.clientX-drag.x)*0.01; pitch=Math.max(-0.35,Math.min(Math.PI/2,drag.pitch+(e.clientY-drag.y)*0.01)); tip.hidden=true; draw3d(); } else hover(()=>proj,tip,cv)(e); });
+  cv.addEventListener('pointerup',()=>drag=null);
+  cv.addEventListener('pointerleave',()=>tip.hidden=true);
+  tm.addEventListener('pointermove',hover(()=>tproj,tip2,tm)); tm.addEventListener('pointerleave',()=>tip2.hidden=true);
+  const VIEWS={three:[135,32],top:[0,90],front:[180,4],left:[90,4],right:[-90,4],back:[0,4]};
+  $('#h5view',root).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; [yaw,pitch]=VIEWS[b.dataset.v].map(d=>d*Math.PI/180); draw3d(); });
+  function syncInputs(){ $('#h5area',root).value=S.area; $('#h5dep',root).value=S.depth; $('#h5col',root).value=S.colat; $('#h5az',root).value=S.az; $('#h5dir',root).value=S.dir; $$('#h5or button',root).forEach(b=>b.setAttribute('aria-pressed',b.dataset.v===S.orient)); }
+  $('#h5pre',root).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; Object.assign(S,PRESETS[b.dataset.p]); $$('#h5pre .chip',root).forEach(c=>c.setAttribute('aria-pressed',c===b)); syncInputs(); compute(); });
+  const clearPre=()=>$$('#h5pre .chip',root).forEach(c=>c.setAttribute('aria-pressed','false'));
+  $('#h5area',root).oninput=e=>{ S.area=+e.target.value; compute(); };
+  $('#h5dep',root).oninput=e=>{ S.depth=+e.target.value; clearPre(); compute(); };
+  $('#h5col',root).oninput=e=>{ S.colat=+e.target.value; clearPre(); compute(); };
+  $('#h5az',root).oninput=e=>{ S.az=+e.target.value; clearPre(); compute(); };
+  $('#h5dir',root).oninput=e=>{ S.dir=+e.target.value; clearPre(); compute(); };
+  bindSeg(root,'h5or',v=>{ S.orient=v; clearPre(); compute(); });
+  $('#h5flip',root).onclick=()=>{ S.sign*=-1; compute(); };
+  $('#h5auto',root).onchange=e=>{ S.auto=e.target.checked; compute(); };
+  $('#h5src',root).onchange=e=>{ S.showSrc=e.target.checked; compute(); };
+  st.onresize=()=>draw3d(); tst.onresize=()=>drawTopo();
+  const redraw=()=>{ draw3d(); drawTopo(); }; themeListeners.add(redraw);
+  compute();
+  return ()=>{ st.destroy(); tst.destroy(); themeListeners.delete(redraw); };
+}
+
+/* =========================================================================
+   QUIZ
+   ========================================================================= */
+const QUIZ=[
+  {q:"True or false: scalp EEG mainly records action potentials.", o:["True","False"], a:1,
+   why:"Mostly false. Spikes last about 1 ms and their currents form closely spaced source-sink pairs that cancel at a distance. Postsynaptic currents last tens of milliseconds, form larger dipoles, and overlap in time across many cells, so they sum.", link:"membrane"},
+  {q:"True or false: each electrode records the cortex directly underneath it.", o:["True","False"], a:1,
+   why:"False. Each site records a weighted blend of distant sources. In Lab 5, a tangential source in the central sulcus gives its largest responses at electrodes away from the one nearest the source. Module 2 develops this further.", link:"scalp"},
+  {q:"True or false: more neural activity always means a bigger EEG signal.", o:["True","False"], a:1,
+   why:"False. Synchrony and geometry matter as much as amount. In Lab 2, 1,000 desynchronized cells sum to about 32 units while 100 synchronized cells sum to nearly 100.", link:"synchrony"},
+  {q:"True or false: EEG samples all brain regions equally.", o:["True","False"], a:1,
+   why:"False. It favors superficial, well-aligned, synchronous generators. Deep, small, asynchronous or closed-field activity contributes little.", link:"misses"},
+  {q:"Which arrangement produces an open field?", o:["A stellate cell with radially symmetric dendrites","Parallel pyramidal cells with aligned apical dendrites","A nucleus with cells arranged radially around a center","Randomly oriented cells"], a:1,
+   why:"Aligned dipoles point the same way, so their fields add and extend far from the tissue. Radial and random arrangements cancel at a distance.", link:"fields"},
+  {q:"A patch of cortex on the wall of a sulcus is active. What does the scalp map most likely show?", o:["A single peak directly above the patch","A positive and a negative pole on either side of the patch","Nothing, because sulcal activity is always invisible","A peak with the same shape as a gyral crown source"], a:1,
+   why:"Sulcal walls hold tangential dipoles, which produce a bipolar map with the poles displaced from the source location. Activity on both walls of the same sulcus tends to cancel.", link:"folding"},
+  {q:"Why do postsynaptic potentials dominate the scalp signal?", o:["They are larger at the membrane than action potentials","They are slower, form dipoles along aligned dendrites, and overlap in time across many cells","They occur only in pyramidal cells","The skull blocks fast signals completely"], a:1,
+   why:"Duration and geometry decide what sums. Slow currents in aligned apical dendrites overlap across thousands of cells; brief spikes rarely line up in time.", link:"membrane"}
+];
+
+/* =========================================================================
+   MEDIA LIBRARY
+   Shared uploads use the artifact's asset store and a "media" collection.
+   Without those (local copy, self-hosting), STATIC_MEDIA plus session-only
+   previews are shown.
+   ========================================================================= */
+const Media={ ready:false, mode:'loading', db:null, assets:null, user:null, canEdit:false, items:[], local:[], listeners:new Set(),
+  all(){ const stat=STATIC_MEDIA.map((m,i)=>({...m,id:'static'+i,static:true})); return [...this.items, ...this.local, ...stat]; },
+  emit(){ this.listeners.forEach(f=>{ try{f();}catch(e){} }); }
+};
+(async function initMedia(){
+  if(!(window.claude && typeof window.claude.use==='function')){ Media.mode='static'; Media.ready=true; Media.emit(); return; }
+  try{
+    const [db,assets,user]=await Promise.all([claude.use('db'),claude.use('assets'),claude.use('user')]);
+    Media.db=db; Media.assets=assets; Media.user=user;
+    let canEdit=false; try{ canEdit = user? !!(await user.canEdit()) : false; }catch(e){}
+    Media.canEdit = canEdit || !!assets;
+    if(db){
+      Media.mode='shared';
+      db.collection('media').orderBy('addedAt','desc').onSnapshot(snap=>{
+        Media.items=snap.docs.map(d=>({...d.data(), id:d.id})); Media.ready=true; Media.emit();
+      }, err=>{ Media.mode='static'; Media.ready=true; Media.emit(); });
+    } else { Media.mode='static'; Media.ready=true; Media.emit(); }
+  }catch(e){ Media.mode='static'; Media.ready=true; Media.emit(); }
+})();
+function mediaSrc(m){ if(m.local) return m.url; if(m.static) return m.src; if(m.kind==='link') return m.url; return '/_blob/'+m.assetId; }
+function kindOf(file){
+  const t=file.type||''; const n=(file.name||'').toLowerCase();
+  if(t==='application/pdf'||n.endsWith('.pdf')) return ['slides','application/pdf'];
+  if(/^image\/(png|jpeg|gif|webp)$/.test(t)) return ['image',t];
+  if(t==='video/mp4'||n.endsWith('.mp4')) return ['video','video/mp4'];
+  if(t==='video/webm'||n.endsWith('.webm')) return ['video','video/webm'];
+  if(/\.(pptx?|key|odp)$/.test(n)) return ['convert',null];
+  return [null,null];
+}
+const KIND_LABEL={slides:'Slides · PDF',video:'Video',image:'Image',link:'Link'};
+function fmtSize(b){ if(!b) return ''; return b>1048576?(b/1048576).toFixed(1)+' MB':Math.round(b/1024)+' KB'; }
+function sectionTitle(mod,sec){ const m=COURSE.modules.find(x=>x.id===mod); if(!m) return ''; if(!sec||sec==='general') return 'Module '+m.n+' · general'; const s=(m.sections||[]).find(x=>x.id===sec); return 'Module '+m.n+' · '+(s?s.title:sec); }
+function mediaCard(m){
+  return `<button class="mcard" type="button" data-mid="${esc(m.id)}"><span class="kind ${esc(m.kind)}">${esc(KIND_LABEL[m.kind]||m.kind)}</span><b>${esc(m.title||'Untitled')}</b><small>${esc(sectionTitle(m.module,m.section))}${m.sizeBytes?' · '+fmtSize(m.sizeBytes):''}${m.local?' · this session only':''}</small></button>`;
+}
+
+let pdfLib=null;
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('Could not load '+src)); document.head.appendChild(s); }); }
+async function getPdf(){
+  if(pdfLib) return pdfLib;
+  const base='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  await loadScript(base+'pdf.worker.min.js'); await loadScript(base+'pdf.min.js');
+  pdfLib=window.pdfjsLib; pdfLib.GlobalWorkerOptions.workerSrc=base+'pdf.worker.min.js';
+  return pdfLib;
+}
+function openViewer(m){
+  const ov=document.createElement('div'); ov.className='overlay'; ov.setAttribute('role','dialog'); ov.setAttribute('aria-modal','true');
+  const canDelete = !m.static && (m.local || Media.canEdit);
+  ov.innerHTML=`<div class="viewer"><div class="viewer-head"><span class="kind ${esc(m.kind)}" style="font:600 10.5px var(--f-mono);text-transform:uppercase;padding:4px 6px;border-radius:4px">${esc(KIND_LABEL[m.kind]||'')}</span><b>${esc(m.title||'Untitled')}</b>${canDelete?'<button class="btn danger" id="vDel" type="button">Delete</button>':''}<button class="btn" id="vClose" type="button">Close</button></div><div class="viewer-body" id="vBody"><span class="notice">Loading…</span></div><div class="viewer-foot" id="vFoot" hidden></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>{ ov.remove(); document.removeEventListener('keydown',onKey); };
+  const onKey=e=>{ if(e.key==='Escape') close(); };
+  document.addEventListener('keydown',onKey);
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  $('#vClose',ov).onclick=close; $('#vClose',ov).focus();
+  const del=$('#vDel',ov);
+  if(del) del.onclick=async()=>{
+    if(del.dataset.confirm!=='1'){ del.dataset.confirm='1'; del.textContent='Delete for everyone?'; return; }
+    del.disabled=true; del.textContent='Deleting…';
+    try{
+      if(m.local){ Media.local=Media.local.filter(x=>x!==m); URL.revokeObjectURL(m.url); Media.emit(); }
+      else { await Media.db.doc('media/'+m.id).delete(); if(m.assetId && Media.assets){ try{ await Media.assets.delete(m.assetId); }catch(e){} } }
+      close();
+    }catch(e){ del.disabled=false; del.textContent='Delete failed. Try again'; }
+  };
+  const body=$('#vBody',ov), foot=$('#vFoot',ov); const src=mediaSrc(m);
+  if(m.kind==='video'){ body.innerHTML=''; const v=document.createElement('video'); v.controls=true; v.src=src; v.playsInline=true; v.onerror=()=>{ body.innerHTML='<span class="notice err">This video could not be loaded here. It may be unavailable to viewers outside the organization.</span>'; }; body.appendChild(v); }
+  else if(m.kind==='image'){ body.innerHTML=''; const i=document.createElement('img'); i.alt=m.title||''; i.src=src; body.appendChild(i); }
+  else if(m.kind==='link'){ body.innerHTML=`<div class="empty" style="background:var(--surface)"><p>This item opens on another site.</p><a class="btn primary" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">Open link</a><small class="mono">${esc(m.url)}</small></div>`; }
+  else if(m.kind==='slides'){
+    (async()=>{
+      try{
+        const lib=await getPdf();
+        let data; if(m.local&&m.file) data=new Uint8Array(await m.file.arrayBuffer()); else { const r=await fetch(src); if(!r.ok) throw new Error('fetch'); data=new Uint8Array(await r.arrayBuffer()); }
+        const doc=await lib.getDocument({data}).promise; let page=1;
+        body.innerHTML=''; const c=document.createElement('canvas'); body.appendChild(c);
+        foot.hidden=false; foot.innerHTML=`<button class="btn" id="pPrev" type="button">Previous</button><span class="mono" id="pNum"></span><button class="btn" id="pNext" type="button">Next</button>`;
+        async function render(){ const pg=await doc.getPage(page); const avail=Math.min(body.clientWidth-24, 1400); const vp0=pg.getViewport({scale:1}); const scale=Math.max(0.5,avail/vp0.width); const vp=pg.getViewport({scale:scale*(window.devicePixelRatio||1)});
+          c.width=vp.width; c.height=vp.height; c.style.width=(vp.width/(window.devicePixelRatio||1))+'px'; await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; $('#pNum',foot).textContent=`${page} / ${doc.numPages}`; }
+        $('#pPrev',foot).onclick=()=>{ if(page>1){page--; render();} }; $('#pNext',foot).onclick=()=>{ if(page<doc.numPages){page++; render();} };
+        ov.addEventListener('keydown',e=>{ if(e.key==='ArrowRight') $('#pNext',foot).click(); if(e.key==='ArrowLeft') $('#pPrev',foot).click(); });
+        render();
+      }catch(e){ body.innerHTML='<span class="notice err">These slides could not be opened. Check that the file is a valid PDF.</span>'; }
+    })();
+  }
+}
+function mediaList(root, filter){
+  const items=Media.all().filter(filter);
+  return items;
+}
+function bindMediaClicks(root){ root.addEventListener('click',e=>{ const b=e.target.closest('.mcard'); if(!b) return; const m=Media.all().find(x=>String(x.id)===b.dataset.mid); if(m) openViewer(m); }); }
+
+function renderRelated(el, mod, sec){
+  const paint=()=>{ const items=Media.all().filter(m=>m.module===mod && m.section===sec);
+    el.innerHTML = items.length? `<h3>Slides and videos for this section</h3><div class="media-grid">${items.map(mediaCard).join('')}</div>` : ''; el.hidden=!items.length; };
+  paint(); Media.listeners.add(paint); bindMediaClicks(el);
+  return ()=>Media.listeners.delete(paint);
+}
+
+/* =========================================================================
+   PAGES
+   ========================================================================= */
+const M1=COURSE.modules[0];
+const PAGES={};
+function labPage(sec, intro, mount, tryList, key){
+  return (page)=>{
+    page.innerHTML=`
+      <header class="head"><span class="eyebrow">Module 1 · ${esc(sec.kind)}</span><h1>${esc(sec.title)}</h1><div class="prose">${intro}</div></header>
+      <div id="labRoot" style="display:flex;flex-direction:column;gap:16px"></div>
+      <div class="grid2">
+        <div class="panel try"><h3>Try this</h3><ol>${tryList.map(t=>`<li>${t}</li>`).join('')}</ol></div>
+        <div class="panel"><h3>Key idea</h3><p>${key}</p></div>
+      </div>
+      <section class="related" id="related" hidden></section>`;
+    const un1=mount($('#labRoot',page)); const un2=renderRelated($('#related',page),'m1',sec.id);
+    return ()=>{ un1&&un1(); un2(); };
+  };
+}
+const SEC=id=>M1.sections.find(s=>s.id===id);
+
+PAGES.overview=(page)=>{
+  const objs=["Explain why postsynaptic potentials, not action potentials, dominate the scalp signal.","Describe how pyramidal cell geometry, parallel alignment, and synchrony let individual currents add up.","Distinguish open-field from closed-field arrangements, with one example of each.","Explain why scalp EEG is biased toward superficial, synchronous, favorably oriented sources.","Relate dipole orientation (gyral crown, sulcal wall, fundus) to polarity and scalp topography."];
+  const outline=[
+    ["membrane","From membrane to field","How a synaptic current creates a source and a sink along a neuron, and why that forms a dipole. Includes why pyramidal cells matter."],
+    ["synchrony","Synchrony and summation","Why 1,000 desynchronized sources can matter less than 100 synchronized ones."],
+    ["fields","Open and closed fields","Stellate cells and radial arrangements cancel at a distance; pyramidal arrays do not."],
+    ["folding","Orientation and folding","Gyral crowns versus sulcal walls, radial versus tangential sources, and what each does to polarity."],
+    ["scalp","The view from the scalp","A 3D head with 10-20 electrodes. Move a source and watch the topography."],
+    ["misses","What EEG misses","How much cortex it takes, and the deep, small, asynchronous or closed-field activity EEG cannot see."]
+  ];
+  page.innerHTML=`
+    <header class="head">
+      <span class="eyebrow">Theory Track · Module 1</span>
+      <h1>Origin of the EEG signal</h1>
+      <p class="lead" style="max-width:68ch">${esc(M1.summary)}</p>
+      <div class="meta-row"><span><b>Prep</b> 45 to 60 min</span><span><b>Discussion</b> 60 min</span><span><b>Cohort</b> 3 to 5 fellows</span><span><b>Pace</b> about 3 h per week</span></div>
+    </header>
+    <section class="panel"><h3>Learning objectives</h3><p style="color:var(--muted);font-size:13.5px;margin-bottom:8px">Tick each one when you can explain it to a colleague without notes.</p><div class="obj" id="objs">${objs.map((o,i)=>`<label><input type="checkbox" data-i="${i}" ${store.data.obj[i]?'checked':''}><span>${esc(o)}</span></label>`).join('')}</div></section>
+    <section class="panel"><h3>Explainer outline</h3><div class="outline">${outline.map(([id,t,d],i)=>`<a href="#${id}" data-go="${id}"><span class="n">${String(i+1).padStart(2,'0')}</span><span><b>${t}</b><span class="d">${d}</span></span><span class="tag">${esc(SEC(id).kind)}</span></a>`).join('')}</div></section>
+    <section class="panel"><h3>Prep reading</h3>
+      <div class="reading"><span class="eyebrow">Core</span><i>The neurophysiological bases of EEG and EEG measurement: a review for the rest of us</i><span>Jackson and Bolger (2014), Psychophysiology. <a href="https://doi.org/10.1111/psyp.12283" target="_blank" rel="noopener">doi.org/10.1111/psyp.12283</a></span></div>
+      <div class="reading"><span class="eyebrow">Optional deeper</span><i>Where does EEG come from and what does it mean?</i><span>Cohen (2017), Trends in Neurosciences. <a href="https://doi.org/10.1016/j.tins.2017.02.004" target="_blank" rel="noopener">doi.org/10.1016/j.tins.2017.02.004</a></span></div>
+      <div class="reading"><span class="eyebrow">Optional deeper</span><i>The origin of extracellular fields and currents: EEG, ECoG, LFP and spikes</i><span>Buzsáki, Anastassiou and Koch (2012), Nature Reviews Neuroscience. <a href="https://doi.org/10.1038/nrn3241" target="_blank" rel="noopener">doi.org/10.1038/nrn3241</a></span></div>
+      <div class="reading"><span class="eyebrow">For trainers</span><i>Electric Fields of the Brain</i><span>Nunez and Srinivasan, chapters on sources.</span></div>
+    </section>
+    <section class="callout"><b>How the labs are built</b><span style="color:var(--muted)">Each lab uses a simplified physical model: point current sources and dipoles in a uniform conducting medium. Values are relative units, chosen to show the direction and size of effects. Skull smearing and referencing are left out on purpose; Module 2 adds them.</span></section>
+    <section class="related" id="related" hidden></section>`;
+  $('#objs',page).addEventListener('change',e=>{ const i=e.target.dataset.i; store.data.obj[i]=e.target.checked; store.save(); updateProgress(); });
+  return renderRelated($('#related',page),'m1','overview');
+};
+
+PAGES.membrane=labPage(SEC('membrane'),
+  `<p class="lead">When an excitatory synapse on the apical dendrite opens, positive ions flow into the cell. The extracellular space there loses positive charge and becomes a current sink. The current travels down the dendrite and leaks back out near the soma, which becomes a source. A sink and a source a few hundred microns apart form a dipole.</p>`,
+  labMembrane,
+  ["Keep <b>Synaptic input</b> selected. Watch the blue sink at the apical tuft and the red source around the soma. The return current outside the cell flows from source to sink.","Switch to <b>Action potential</b>. The spike is brief and its sink sits between two nearby sources, so the field collapses within a short distance.","Choose <b>EPSP that triggers a spike</b>. Drag the electrode next to the axon: the spike dominates. Then compare the distant probe, where only the slow synaptic wave survives."],
+  "Postsynaptic currents last tens of milliseconds and separate charge along the whole apical dendrite, so they make a large dipole whose field falls off slowly. Action potentials last about a millisecond and form a tight source-sink-source pattern that cancels at a distance. Pyramidal cells matter because their long apical dendrites, stacked in parallel columns and layers, line these dipoles up across thousands of cells.");
+
+PAGES.synchrony=labPage(SEC('synchrony'),
+  `<p class="lead">A single neuron's dipole is far too small to see at the scalp. What reaches the electrode is a sum, and how much survives depends on whether the contributions rise and fall together. Compare two populations on the same vertical scale.</p>`,
+  labSynchrony,
+  ["Start with the default: 1,000 cells at 0% synchrony against 100 cells at 92%. Read the ratio.","Drag A's synchrony up slowly. Notice how little changes until most phases cluster together.","Set both to 0% synchrony and raise A to 3,000 cells. The sum grows only with the square root of the count."],
+  "With random timing, contributions cancel and the sum grows like √N. With aligned timing it grows like N. A smaller synchronous population can therefore outweigh a much larger asynchronous one, which is why EEG amplitude reflects coordination as much as the amount of activity.");
+
+PAGES.fields=labPage(SEC('fields'),
+  `<p class="lead">Geometry decides whether currents from many cells reinforce or cancel. In an open field, dipoles share an orientation and the field extends far from the tissue. In a closed field, dipoles point in opposing directions and cancel outside a small region.</p>`,
+  labFields,
+  ["Compare <b>Parallel pyramidal cells</b> with <b>Stellate cell</b>. Both carry real current, but only one is visible far away.","Read the falloff chart on the right. The pyramidal line drops slowly; the closed-field lines drop several orders of magnitude faster.","Drag the probe close to the stellate cell. Strong local fields exist, which is why intracortical recordings can see activity that scalp EEG misses."],
+  "Open fields come from aligned dipoles, such as pyramidal cells in cortical layers. Closed fields come from symmetric arrangements, such as stellate cells with radial dendrites or nuclei with radially arranged cells. Closed-field activity can be intense locally and still contribute almost nothing at the scalp.");
+
+PAGES.folding=labPage(SEC('folding'),
+  `<p class="lead">Pyramidal cells stand perpendicular to the cortical surface, so each patch's dipole points along the local surface normal. Because the cortex is folded, the same kind of activity produces very different scalp maps depending on where it happens. This is a coronal slice through a simplified folded cortex.</p>`,
+  labFolding,
+  ["Start at the <b>Gyral crown</b>. The dipole is radial and produces a single focal peak right above it.","Switch to <b>Sulcal wall</b>. The dipole is tangential: the scalp shows a positive and a negative pole on either side of the source.","Select <b>Fundus</b> and widen the active patch. Once both walls are included, their opposite dipoles cancel and the scalp signal shrinks."],
+  "Radial sources at gyral crowns give focal maps centered over the source. Tangential sources in sulcal walls give bipolar maps with the poles displaced from the source. Superficial versus deep synaptic input flips polarity. Opposing walls of a sulcus cancel, so the same total activity can be visible or nearly invisible depending on folding, which varies across people.");
+
+PAGES.scalp=labPage(SEC('scalp'),
+  `<p class="lead">Now in three dimensions. Place a dipole inside a spherical head and see the potential it produces at all 21 electrodes of the 10-20 system. Drag the head to rotate it; hover an electrode to read its value. The flat map shows the same field seen from above.</p>`,
+  labScalp,
+  ["Compare <b>Hand motor cortex, gyral crown</b> with <b>Central sulcus wall</b>. Same location, different orientation. Check which electrode shows the largest response in each case.","Choose <b>Auditory cortex</b>. The source sits in the temporal lobe, yet the strongest deflection appears over central sites, a familiar pattern for auditory responses.","Try the <b>Deep source</b> with fixed colors, then raise the synchronous area. Even 30 cm² at that depth stays weak compared with a superficial source."],
+  "Each electrode records a weighted blend of sources across the head, and the electrode nearest the source is often not the one with the biggest signal. Depth weakens a source quickly; orientation decides where its poles land. Commonly cited estimates put a clearly visible scalp signal at several square centimeters of coherently active cortex, which you should treat as an approximation.");
+
+PAGES.misses=(page)=>{
+  page.innerHTML=`
+    <header class="head"><span class="eyebrow">Module 1 · Synthesis</span><h1>What EEG misses</h1>
+      <div class="prose"><p class="lead">Put the labs together and a clear bias emerges. Scalp EEG favors superficial, synchronous, favorably oriented, open-field generators. Everything else is attenuated, cancelled, or lost.</p></div></header>
+    <div class="grid2">
+      <div class="panel"><h3>Visible at the scalp</h3><ul class="list">
+        <li>Synchronous postsynaptic activity in aligned pyramidal cells</li>
+        <li>Patches of several square centimeters of coherently active cortex (an approximation)</li>
+        <li>Superficial sources, especially radial ones at gyral crowns</li>
+        <li>Tangential sulcal sources, with displaced bipolar maps</li></ul></div>
+      <div class="panel"><h3>Largely invisible</h3><ul class="list">
+        <li>Deep structures, whose fields fade with distance <a href="#scalp" data-go="scalp">(Lab 5, deep source)</a></li>
+        <li>Small active patches, even when intense</li>
+        <li>Asynchronous activity, which cancels <a href="#synchrony" data-go="synchrony">(Lab 2)</a></li>
+        <li>Closed-field arrangements <a href="#fields" data-go="fields">(Lab 3)</a></li>
+        <li>Activity on opposing sulcal walls that cancels <a href="#folding" data-go="folding">(Lab 4)</a></li>
+        <li>Most action potentials <a href="#membrane" data-go="membrane">(Lab 1)</a></li></ul></div>
+    </div>
+    <section class="panel"><h3>Common misconceptions</h3>
+      <div class="grid2">
+        <div class="callout"><b>"EEG records action potentials."</b><span style="color:var(--muted)">Mostly it does not. Fast, brief spikes cancel far more readily than slower synaptic currents.</span></div>
+        <div class="callout"><b>"Each electrode records the cortex underneath it."</b><span style="color:var(--muted)">Each site records a weighted blend of distant sources, which Module 2 develops.</span></div>
+        <div class="callout"><b>"More neural activity means a bigger EEG signal."</b><span style="color:var(--muted)">Synchrony and geometry matter as much as amount.</span></div>
+        <div class="callout"><b>"EEG samples the whole brain equally."</b><span style="color:var(--muted)">It favors superficial, well-aligned, synchronous generators.</span></div>
+      </div></section>
+    <section class="related" id="related" hidden></section>`;
+  return renderRelated($('#related',page),'m1','misses');
+};
+
+PAGES.check=(page)=>{
+  const ans=store.data.quiz;
+  page.innerHTML=`
+    <header class="head"><span class="eyebrow">Module 1 · Quiz</span><h1>Misconceptions check</h1>
+      <div class="prose"><p class="lead">Seven questions built from the module's misconceptions and objectives. Each answer links back to the lab that shows it.</p></div>
+      <div style="display:flex;gap:16px;align-items:center"><span class="score" id="qScore"></span><button class="btn" id="qReset" type="button">Start over</button></div></header>
+    <section class="panel" id="qList">${QUIZ.map((q,i)=>`
+      <div class="q" data-i="${i}"><b>${i+1}. ${esc(q.q)}</b>
+        <div class="opts">${q.o.map((o,j)=>`<button class="opt" type="button" data-j="${j}">${esc(o)}</button>`).join('')}</div>
+        <div class="why" hidden></div></div>`).join('')}</section>`;
+  function paint(){
+    let right=0, done=0;
+    $$('.q',page).forEach(el=>{ const i=+el.dataset.i, q=QUIZ[i], a=ans[i];
+      $$('.opt',el).forEach(b=>{ const j=+b.dataset.j; b.classList.toggle('right', a!=null && j===q.a); b.classList.toggle('wrong', a!=null && j===a && a!==q.a); b.disabled=a!=null; });
+      const why=$('.why',el); if(a!=null){ done++; if(a===q.a) right++; why.hidden=false; why.innerHTML=`<b style="color:var(--ink)">${a===q.a?'Correct.':'Not quite.'}</b> ${esc(q.why)} <a href="#${q.link}" data-go="${q.link}">Open the lab</a>`; } else why.hidden=true; });
+    $('#qScore',page).textContent=`${right} / ${QUIZ.length} correct${done<QUIZ.length?` · ${QUIZ.length-done} left`:''}`;
+  }
+  $('#qList',page).addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(!b) return; const i=+b.closest('.q').dataset.i; ans[i]=+b.dataset.j; store.save(); paint(); updateProgress(); });
+  $('#qReset',page).onclick=()=>{ store.data.quiz={}; Object.keys(ans).forEach(k=>delete ans[k]); store.save(); paint(); updateProgress(); };
+  paint();
+};
+
+PAGES.discussion=(page)=>{
+  const Q=[
+    ["If EEG mostly sees synaptic activity, what does that imply about interpreting a change in alpha power as \"more neural firing\"?","synchrony","Lab 2"],
+    ["Why might two equally active regions produce very different scalp amplitudes?","folding","Lab 4"],
+    ["What kinds of brain activity relevant to our own studies would EEG be blind to?","misses","Synthesis"],
+    ["How would a change in participant cortical folding affect the same task effect across people?","scalp","Lab 5"]];
+  page.innerHTML=`
+    <header class="head"><span class="eyebrow">Module 1 · Seminar (60 min)</span><h1>Discussion</h1>
+      <div class="prose"><p class="lead">Draft your thinking before the session. Notes are private and saved in this browser only.</p></div></header>
+    ${Q.map(([q,l,k],i)=>`<section class="panel" style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap"><h3 style="flex:1;min-width:240px">${esc(q)}</h3><a class="btn" href="#${l}" data-go="${l}">Revisit ${esc(k)}</a></div>
+      <label for="note${i}" class="eyebrow">Your notes</label>
+      <textarea id="note${i}" data-i="${i}" placeholder="Write a first answer, then refine it after the session.">${esc(store.data.notes[i]||'')}</textarea></section>`).join('')}`;
+  let tmr; page.addEventListener('input',e=>{ if(e.target.tagName!=='TEXTAREA') return; store.data.notes[e.target.dataset.i]=e.target.value; clearTimeout(tmr); tmr=setTimeout(()=>store.save(),400); });
+};
+
+PAGES.media=(page)=>{
+  let filter='all';
+  const mods=COURSE.modules;
+  page.innerHTML=`
+    <header class="head"><span class="eyebrow">Course library</span><h1>Slides and videos</h1>
+      <div class="prose"><p class="lead">Session slides, recorded explainers and reference links for every module. Items tagged to a section also appear at the bottom of that section's page.</p></div></header>
+    <div id="mNotice"></div>
+    <section class="panel" id="mUpload" hidden>
+      <h3>Add to the library</h3>
+      <div class="controls" style="padding:0;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+        <div class="ctl"><label for="mTitle">Title</label><input type="text" id="mTitle" placeholder="e.g. Session 1 slides"></div>
+        <div class="ctl"><label for="mMod">Module</label><select id="mMod">${mods.map(m=>`<option value="${m.id}">Module ${m.n}: ${esc(m.title)}</option>`).join('')}</select></div>
+        <div class="ctl"><label for="mSec">Section</label><select id="mSec"></select></div>
+      </div>
+      <div class="empty drop" id="mDrop" style="margin-top:14px">
+        <b style="color:var(--ink)">Drop a PDF, image or video here</b>
+        <span>PDF slides, PNG or JPG images, MP4 or WebM video, up to 20 MB each. Export PowerPoint or Keynote decks as PDF first.</span>
+        <label class="btn primary" for="mFile">Choose file</label><input type="file" id="mFile" accept=".pdf,application/pdf,image/png,image/jpeg,image/gif,image/webp,video/mp4,video/webm" hidden>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:14px" id="mLinkRow">
+        <div class="ctl" style="flex:1;min-width:220px"><label for="mUrl">Or add a link (YouTube, Drive, a paper)</label><input type="url" id="mUrl" placeholder="https://"></div>
+        <button class="btn" id="mAddLink" type="button">Add link</button>
+      </div>
+      <div id="mStatus" style="margin-top:10px"></div>
+    </section>
+    <div class="chips" id="mFilter"><button class="chip" data-f="all" aria-pressed="true" type="button">All modules</button>${mods.map(m=>`<button class="chip" data-f="${m.id}" type="button">Module ${m.n}</button>`).join('')}</div>
+    <section id="mGrid"></section>`;
+  const secSel=$('#mSec',page), modSel=$('#mMod',page);
+  function fillSecs(){ const m=mods.find(x=>x.id===modSel.value); secSel.innerHTML=`<option value="general">General</option>`+(m.sections||[]).map(s=>`<option value="${s.id}">${esc(s.title)}</option>`).join(''); }
+  modSel.onchange=fillSecs; fillSecs();
+  const status=(msg,err)=>{ $('#mStatus',page).innerHTML=msg?`<div class="notice ${err?'err':''}">${esc(msg)}</div>`:''; };
+  function paint(){
+    const n=$('#mNotice',page); const up=$('#mUpload',page);
+    if(!Media.ready){ n.innerHTML='<div class="notice">Loading the library…</div>'; }
+    else if(Media.mode==='shared'){ n.innerHTML = Media.canEdit? '' : '<div class="notice">You are viewing the shared library. Editors of this page can add slides and videos.</div>'; }
+    else { n.innerHTML='<div class="notice">Shared storage is not available in this copy. Files you add here open for preview in this session only. To publish files on a self-hosted copy, list them in STATIC_MEDIA inside the page source.</div>'; }
+    up.hidden = !(Media.ready && (Media.mode!=='shared' || Media.canEdit));
+    $('#mLinkRow',page).hidden = Media.mode!=='shared';
+    const items=Media.all().filter(m=>filter==='all'||m.module===filter);
+    const grid=$('#mGrid',page);
+    if(!Media.ready){ grid.innerHTML=''; return; }
+    if(!items.length){ grid.innerHTML=`<div class="empty"><b style="color:var(--ink)">Nothing here yet</b><span>${Media.canEdit||Media.mode!=='shared'?'Add the first slides or video above.':'Slides and videos appear here once a trainer adds them.'}</span></div>`; return; }
+    const groups={slides:'Slides',video:'Videos',image:'Images',link:'Links'};
+    grid.innerHTML=Object.entries(groups).map(([k,t])=>{ const g=items.filter(m=>m.kind===k); return g.length?`<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px"><h3>${t} <span class="tag">${g.length}</span></h3><div class="media-grid">${g.map(mediaCard).join('')}</div></div>`:''; }).join('');
+  }
+  $('#mFilter',page).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; filter=b.dataset.f; $$('#mFilter .chip',page).forEach(c=>c.setAttribute('aria-pressed',c===b)); paint(); });
+  async function handle(file){
+    if(!file) return; const [kind,type]=kindOf(file);
+    if(kind==='convert') return status('Export the deck as PDF first (File, then Export or Save as PDF), then upload the PDF.',true);
+    if(!kind) return status('This file type is not supported. Use PDF, PNG, JPG, GIF, WebP, MP4 or WebM.',true);
+    const title=$('#mTitle',page).value.trim()||file.name.replace(/\.[^.]+$/,'');
+    const meta={module:modSel.value, section:secSel.value, kind, title, contentType:type, sizeBytes:file.size, addedAt:Date.now()};
+    if(Media.mode!=='shared'){ Media.local.unshift({...meta,id:'local'+Date.now(),local:true,url:URL.createObjectURL(file),file}); Media.emit(); status('Added for this session.'); return; }
+    if(file.size>20*1024*1024) return status('This file is over 20 MB. Compress the video, split the deck, or upload it elsewhere and add it as a link.',true);
+    status('Uploading '+file.name+'…');
+    try{
+      const r=await Media.assets.upload(file,{type});
+      await Media.db.collection('media').add({...meta, assetId:r.id, sizeBytes:r.sizeBytes, contentType:r.contentType});
+      $('#mTitle',page).value=''; status('Added "'+title+'".');
+    }catch(e){
+      const c=e&&e.code; const msg={too_large:'This file is over the size limit. Compress it or add it as a link.',unsupported_type:'This file type is not accepted. Use PDF, PNG, JPG, MP4 or WebM.',quota_or_state:'Library storage is full. Delete unused items, then try again.',rate_limited:'Too many uploads at once. Wait a moment and try again.',not_granted:'Only editors of this page can upload.'}[c]||'The upload did not finish. Try again in a moment.';
+      status(msg,true);
+    }
+  }
+  $('#mFile',page).onchange=e=>{ handle(e.target.files[0]); e.target.value=''; };
+  const drop=$('#mDrop',page);
+  drop.addEventListener('dragover',e=>{ e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{ e.preventDefault(); drop.classList.remove('over'); handle(e.dataTransfer.files[0]); });
+  $('#mAddLink',page).onclick=async()=>{
+    const url=$('#mUrl',page).value.trim(); let ok=false; try{ ok=['https:','http:'].includes(new URL(url).protocol); }catch(e){}
+    if(!ok) return status('Enter a full web address starting with https://',true);
+    const title=$('#mTitle',page).value.trim()||new URL(url).hostname;
+    try{ await Media.db.collection('media').add({module:modSel.value, section:secSel.value, kind:'link', title, url, addedAt:Date.now()}); $('#mUrl',page).value=''; $('#mTitle',page).value=''; status('Added link "'+title+'".'); }
+    catch(e){ status('The link could not be saved. Only editors of this page can add items.',true); }
+  };
+  bindMediaClicks($('#mGrid',page));
+  paint(); Media.listeners.add(paint);
+  return ()=>Media.listeners.delete(paint);
+};
+
+function plannedPage(mod){
+  return (page)=>{
+    page.innerHTML=`
+      <header class="head"><span class="eyebrow">${typeof mod.n==='number'?'Theory Track · Module '+mod.n:'Practical Track'} · In development</span><h1>${esc(mod.title)}</h1>
+        <div class="prose"><p class="lead">${esc(mod.summary)}</p></div></header>
+      <section class="panel"><h3>Planned topics</h3><ul class="list">${mod.points.map(p=>`<li>${esc(p)}</li>`).join('')}</ul></section>
+      <section class="callout"><b>Building this module</b><span style="color:var(--muted)">Interactive labs for this module will follow the Module 1 pattern. Trainers can already add slides and videos for it in the <a href="#media" data-go="media">library</a>.</span></section>
+      <section class="related" id="related" hidden></section>`;
+    return renderRelated($('#related',page),mod.id,'general');
+  };
+}
+COURSE.modules.slice(1).forEach(m=>PAGES[m.id]=plannedPage(m));
+
+/* =========================================================================
+   NAVIGATION
+   ========================================================================= */
+const ORDER=[...M1.sections.map(s=>s.id),'media'];
+function titleOf(id){ const s=SEC(id); if(s) return s.title; if(id==='media') return 'Slides and videos'; const m=COURSE.modules.find(x=>x.id===id); return m?m.title:''; }
+function renderNav(cur){
+  const v=store.data.visited;
+  $('#nav').innerHTML=`
+    <span class="eyebrow">Theory Track</span>
+    <a class="mod" href="#overview" data-go="overview"><span class="tick ${v.overview?'done':''}"></span>Module 1 · Origin of the EEG signal</a>
+    ${M1.sections.slice(1).map(s=>`<a class="sub" href="#${s.id}" data-go="${s.id}" ${cur===s.id?'aria-current="page"':''}><span class="tick ${v[s.id]?'done':''}"></span>${esc(s.title)}</a>`).join('')}
+    ${COURSE.modules.slice(1).filter(m=>typeof m.n==='number').map(m=>`<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur===m.id?'aria-current="page"':''}><span class="tick"></span><span>Module ${m.n} · ${esc(m.title)}</span><span class="lock">soon</span></a>`).join('')}
+    <span class="eyebrow" style="margin-top:14px">Practical Track</span>
+    ${COURSE.modules.filter(m=>typeof m.n!=='number').map(m=>`<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur===m.id?'aria-current="page"':''}><span class="tick"></span><span>${esc(m.title.replace('Practical: ',''))}</span><span class="lock">soon</span></a>`).join('')}
+    <span class="eyebrow" style="margin-top:14px">Library</span>
+    <a class="mod" href="#media" data-go="media" ${cur==='media'?'aria-current="page"':''}><span class="tick"></span>Slides and videos</a>`;
+  if(cur==='overview') $('#nav a[data-go="overview"]').setAttribute('aria-current','page');
+}
+function updateProgress(){
+  const v=store.data.visited; const secs=M1.sections.map(s=>s.id);
+  const visited=secs.filter(s=>v[s]).length; const objs=Object.values(store.data.obj).filter(Boolean).length; const q=Object.keys(store.data.quiz).length;
+  const pct=Math.round(((visited/secs.length)*0.5 + (objs/5)*0.3 + (q/QUIZ.length)*0.2)*100);
+  $('#progBar').style.width=pct+'%'; $('#progTxt').textContent=pct+'%';
+}
+let unmount=null, current=null;
+function go(id, push){
+  if(!PAGES[id]) id='overview';
+  if(unmount){ try{unmount();}catch(e){} unmount=null; }
+  current=id; const page=$('#page'); page.innerHTML='';
+  unmount=PAGES[id](page)||null;
+  const i=ORDER.indexOf(id);
+  if(i>=0){ const prev=ORDER[i-1], next=ORDER[i+1]; const pg=document.createElement('nav'); pg.className='pager'; pg.setAttribute('aria-label','Section navigation');
+    pg.innerHTML=(prev?`<a href="#${prev}" data-go="${prev}"><span class="eyebrow">Previous</span><b>${esc(titleOf(prev))}</b></a>`:'')+(next?`<a class="next" href="#${next}" data-go="${next}"><span class="eyebrow">Next</span><b>${esc(titleOf(next))}</b></a>`:'');
+    page.appendChild(pg); }
+  if(SEC(id)){ store.data.visited[id]=true; store.save(); }
+  renderNav(id); updateProgress();
+  $('#topTitle').textContent=titleOf(id);
+  $('#side').classList.remove('open');
+  if(push){ try{ history.replaceState(null,'','#'+id); }catch(e){} window.scrollTo(0,0); }
+}
+document.addEventListener('click',e=>{ const a=e.target.closest('[data-go]'); if(!a) return; e.preventDefault(); go(a.dataset.go,true); });
+window.addEventListener('hashchange',()=>{ const id=location.hash.slice(1); if(id&&id!==current) go(id,false); });
+$('#menuBtn').onclick=()=>$('#side').classList.toggle('open');
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('#side').classList.remove('open'); });
+go((location.hash||'#overview').slice(1), false);
+</script>
