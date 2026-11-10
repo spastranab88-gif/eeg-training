@@ -93,6 +93,11 @@ main{min-width:0; padding-block:36px 80px; padding-left:max(16px, env(safe-area-
 .readout .v{font:500 15px/1.3 var(--f-mono); font-variant-numeric:tabular-nums}
 .split{display:grid; grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}
 .split > .stage + .stage{border-top:0; border-left:1px solid var(--line)}
+.split.even{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.tri{display:grid; grid-template-columns:repeat(3,minmax(0,1fr))}
+.tri > .stage + .stage{border-left:1px solid var(--line); border-top:0}
+.fit{font:600 26px/1 var(--f-mono)}
+.note-box{border-top:1px solid var(--line); padding:14px 16px; background:var(--accent-soft); font-size:14px}
 .controls{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px 20px; padding:16px}
 .ctl{display:flex; flex-direction:column; gap:6px; min-width:0}
 .ctl label, .ctl .lbl{font-size:12.5px; font-weight:600; display:flex; justify-content:space-between; gap:8px}
@@ -188,8 +193,9 @@ input[type=text], input[type=url], select{border:1px solid var(--line); border-r
   main{padding-top:24px}
   .split{grid-template-columns:minmax(0,1fr)}
   .split > .stage + .stage{border-left:0; border-top:1px solid var(--line)}
+  .split.even{grid-template-columns:minmax(0,1fr)}
 }
-@media (max-width:640px){ .grid2,.grid3{grid-template-columns:minmax(0,1fr)} }
+@media (max-width:640px){ .grid2,.grid3,.tri{grid-template-columns:minmax(0,1fr)} .tri > .stage + .stage{border-left:0; border-top:1px solid var(--line)} }
 @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
 </style>
 
@@ -205,7 +211,7 @@ input[type=text], input[type=url], select{border:1px solid var(--line); border-r
     </div>
     <nav class="nav nav-group" id="nav"></nav>
     <div class="side-foot">
-      <div style="display:flex;justify-content:space-between"><span>Module 1 progress</span><span class="mono" id="progTxt">0%</span></div>
+      <div style="display:flex;justify-content:space-between"><span id="progLbl">Module 1 progress</span><span class="mono" id="progTxt">0%</span></div>
       <div class="progress"><i id="progBar"></i></div>
       <span>Progress and notes stay in this browser.</span>
     </div>
@@ -236,9 +242,19 @@ const COURSE = {
         {id:"check",     title:"Misconceptions check", kind:"Quiz"},
         {id:"discussion",title:"Discussion", kind:"Seminar"}
       ]},
-    { id:"m2", n:2, title:"Volume conduction, reference and montage", status:"planned",
-      summary:"Every scalp channel is a blurred, reference-dependent mixture of many sources, so no waveform can be read as the activity under that electrode.",
-      points:["Volume conduction and skull smearing","Forward and inverse problems","What high-density recording improves and what it cannot fix","Why no reference is neutral","Vertex, average reference and surface Laplacian","Montage and layout: GSN 128/256 and the 10-20 system"]},
+    { id:"m2", n:2, title:"Volume conduction, reference and montage", status:"live",
+      summary:"Every scalp channel is a blurred, reference-dependent mixture of many sources, so no waveform can be read as \"the activity under that electrode.\" This module covers the blurring (volume conduction), the source localization problem it creates, and what a reference does to the data.",
+      sections:[
+        {id:"m2",        title:"Overview", kind:"Start here"},
+        {id:"conduction",title:"Volume conduction", kind:"Lab 1"},
+        {id:"inverse",   title:"Forward and inverse problems", kind:"Lab 2"},
+        {id:"density",   title:"What high density buys", kind:"Lab 3"},
+        {id:"reference", title:"Choosing a reference", kind:"Lab 4"},
+        {id:"layout",    title:"Montage and layout", kind:"Lab 5"},
+        {id:"reading",   title:"Reading a scalp channel", kind:"Synthesis"},
+        {id:"m2-check",  title:"Misconceptions check", kind:"Quiz"},
+        {id:"m2-discussion", title:"Discussion", kind:"Seminar"}
+      ]},
     { id:"m3", n:3, title:"Applications", status:"planned",
       summary:"EEG in the context of other neuroimaging modalities, rhythm generation, and uses across pain, cognitive and motor neuroscience.",
       points:["Advantages and disadvantages compared with other modalities","Clinically approved applications","Resting state versus task-based protocols","Sources and functional roles of each rhythm","Evoked versus induced activity","Uses in pain, cognitive and motor neuroscience"]},
@@ -1137,21 +1153,26 @@ function renderRelated(el, mod, sec){
    ========================================================================= */
 const M1=COURSE.modules[0];
 const PAGES={};
+function SEC(id){ for(const m of COURSE.modules){ const s=(m.sections||[]).find(x=>x.id===id); if(s) return s; } return null; }
+function modOf(id){ return COURSE.modules.find(m=>(m.sections||[]).some(s=>s.id===id)) || COURSE.modules.find(m=>m.id===id) || null; }
+const LIVE=()=>COURSE.modules.filter(m=>m.status==='live');
+function keyFor(mod,i){ return mod==='m1'?String(i):mod+'-'+i; }
+function quizStore(mod){ if(mod==='m1') return store.data.quiz; store.data.quizzes=store.data.quizzes||{}; return (store.data.quizzes[mod]=store.data.quizzes[mod]||{}); }
 function labPage(sec, intro, mount, tryList, key){
   return (page)=>{
+    const mod=modOf(sec.id);
     page.innerHTML=`
-      <header class="head"><span class="eyebrow">Module 1 · ${esc(sec.kind)}</span><h1>${esc(sec.title)}</h1><div class="prose">${intro}</div></header>
+      <header class="head"><span class="eyebrow">Module ${mod.n} · ${esc(sec.kind)}</span><h1>${esc(sec.title)}</h1><div class="prose">${intro}</div></header>
       <div id="labRoot" style="display:flex;flex-direction:column;gap:16px"></div>
       <div class="grid2">
         <div class="panel try"><h3>Try this</h3><ol>${tryList.map(t=>`<li>${t}</li>`).join('')}</ol></div>
         <div class="panel"><h3>Key idea</h3><p>${key}</p></div>
       </div>
       <section class="related" id="related" hidden></section>`;
-    const un1=mount($('#labRoot',page)); const un2=renderRelated($('#related',page),'m1',sec.id);
+    const un1=mount($('#labRoot',page)); const un2=renderRelated($('#related',page),mod.id,sec.id);
     return ()=>{ un1&&un1(); un2(); };
   };
 }
-const SEC=id=>M1.sections.find(s=>s.id===id);
 
 PAGES.overview=(page)=>{
   const objs=["Explain why postsynaptic potentials, not action potentials, dominate the scalp signal.","Describe how pyramidal cell geometry, parallel alignment, and synchrony let individual currents add up.","Distinguish open-field from closed-field arrangements, with one example of each.","Explain why scalp EEG is biased toward superficial, synchronous, favorably oriented sources.","Relate dipole orientation (gyral crown, sulcal wall, fundus) to polarity and scalp topography."];
@@ -1243,43 +1264,48 @@ PAGES.misses=(page)=>{
   return renderRelated($('#related',page),'m1','misses');
 };
 
-PAGES.check=(page)=>{
-  const ans=store.data.quiz;
+function quizPage(mod, QZ, lead){
+  return (page)=>{
+  const ans=quizStore(mod); const M=modOf(mod);
   page.innerHTML=`
-    <header class="head"><span class="eyebrow">Module 1 · Quiz</span><h1>Misconceptions check</h1>
-      <div class="prose"><p class="lead">Seven questions built from the module's misconceptions and objectives. Each answer links back to the lab that shows it.</p></div>
+    <header class="head"><span class="eyebrow">Module ${M.n} · Quiz</span><h1>Misconceptions check</h1>
+      <div class="prose"><p class="lead">${lead}</p></div>
       <div style="display:flex;gap:16px;align-items:center"><span class="score" id="qScore"></span><button class="btn" id="qReset" type="button">Start over</button></div></header>
-    <section class="panel" id="qList">${QUIZ.map((q,i)=>`
+    <section class="panel" id="qList">${QZ.map((q,i)=>`
       <div class="q" data-i="${i}"><b>${i+1}. ${esc(q.q)}</b>
         <div class="opts">${q.o.map((o,j)=>`<button class="opt" type="button" data-j="${j}">${esc(o)}</button>`).join('')}</div>
         <div class="why" hidden></div></div>`).join('')}</section>`;
   function paint(){
     let right=0, done=0;
-    $$('.q',page).forEach(el=>{ const i=+el.dataset.i, q=QUIZ[i], a=ans[i];
+    $$('.q',page).forEach(el=>{ const i=+el.dataset.i, q=QZ[i], a=ans[i];
       $$('.opt',el).forEach(b=>{ const j=+b.dataset.j; b.classList.toggle('right', a!=null && j===q.a); b.classList.toggle('wrong', a!=null && j===a && a!==q.a); b.disabled=a!=null; });
       const why=$('.why',el); if(a!=null){ done++; if(a===q.a) right++; why.hidden=false; why.innerHTML=`<b style="color:var(--ink)">${a===q.a?'Correct.':'Not quite.'}</b> ${esc(q.why)} <a href="#${q.link}" data-go="${q.link}">Open the lab</a>`; } else why.hidden=true; });
-    $('#qScore',page).textContent=`${right} / ${QUIZ.length} correct${done<QUIZ.length?` · ${QUIZ.length-done} left`:''}`;
+    $('#qScore',page).textContent=`${right} / ${QZ.length} correct${done<QZ.length?` · ${QZ.length-done} left`:''}`;
   }
   $('#qList',page).addEventListener('click',e=>{ const b=e.target.closest('.opt'); if(!b) return; const i=+b.closest('.q').dataset.i; ans[i]=+b.dataset.j; store.save(); paint(); updateProgress(); });
-  $('#qReset',page).onclick=()=>{ store.data.quiz={}; Object.keys(ans).forEach(k=>delete ans[k]); store.save(); paint(); updateProgress(); };
+  $('#qReset',page).onclick=()=>{ Object.keys(ans).forEach(k=>delete ans[k]); store.save(); paint(); updateProgress(); };
   paint();
-};
-
-PAGES.discussion=(page)=>{
-  const Q=[
-    ["If EEG mostly sees synaptic activity, what does that imply about interpreting a change in alpha power as \"more neural firing\"?","synchrony","Lab 2"],
-    ["Why might two equally active regions produce very different scalp amplitudes?","folding","Lab 4"],
-    ["What kinds of brain activity relevant to our own studies would EEG be blind to?","misses","Synthesis"],
-    ["How would a change in participant cortical folding affect the same task effect across people?","scalp","Lab 5"]];
+  };
+}
+function discussionPage(mod, Q){
+  return (page)=>{
+  const M=modOf(mod);
   page.innerHTML=`
-    <header class="head"><span class="eyebrow">Module 1 · Seminar (60 min)</span><h1>Discussion</h1>
+    <header class="head"><span class="eyebrow">Module ${M.n} · Seminar (60 min)</span><h1>Discussion</h1>
       <div class="prose"><p class="lead">Draft your thinking before the session. Notes are private and saved in this browser only.</p></div></header>
     ${Q.map(([q,l,k],i)=>`<section class="panel" style="display:flex;flex-direction:column;gap:10px">
       <div style="display:flex;gap:12px;align-items:baseline;justify-content:space-between;flex-wrap:wrap"><h3 style="flex:1;min-width:240px">${esc(q)}</h3><a class="btn" href="#${l}" data-go="${l}">Revisit ${esc(k)}</a></div>
       <label for="note${i}" class="eyebrow">Your notes</label>
-      <textarea id="note${i}" data-i="${i}" placeholder="Write a first answer, then refine it after the session.">${esc(store.data.notes[i]||'')}</textarea></section>`).join('')}`;
-  let tmr; page.addEventListener('input',e=>{ if(e.target.tagName!=='TEXTAREA') return; store.data.notes[e.target.dataset.i]=e.target.value; clearTimeout(tmr); tmr=setTimeout(()=>store.save(),400); });
-};
+      <textarea id="note${i}" data-i="${i}" placeholder="Write a first answer, then refine it after the session.">${esc(store.data.notes[keyFor(mod,i)]||'')}</textarea></section>`).join('')}`;
+  let tmr; page.addEventListener('input',e=>{ if(e.target.tagName!=='TEXTAREA') return; store.data.notes[keyFor(mod,e.target.dataset.i)]=e.target.value; clearTimeout(tmr); tmr=setTimeout(()=>store.save(),400); });
+  };
+}
+PAGES.check=quizPage('m1', QUIZ, "Seven questions built from the module's misconceptions and objectives. Each answer links back to the lab that shows it.");
+PAGES.discussion=discussionPage('m1', [
+    ["If EEG mostly sees synaptic activity, what does that imply about interpreting a change in alpha power as \"more neural firing\"?","synchrony","Lab 2"],
+    ["Why might two equally active regions produce very different scalp amplitudes?","folding","Lab 4"],
+    ["What kinds of brain activity relevant to our own studies would EEG be blind to?","misses","Synthesis"],
+    ["How would a change in participant cortical folding affect the same task effect across people?","scalp","Lab 5"]]);
 
 PAGES.media=(page)=>{
   let filter='all';
@@ -1362,6 +1388,718 @@ PAGES.media=(page)=>{
   return ()=>Media.listeners.delete(paint);
 };
 
+/* =========================================================================
+   MODULE 2 SHARED: SPHERICAL HEAD, PROJECTIONS, SPHERICAL SPLINES
+   Head: unit sphere (radius 9 cm). Dipole potentials use the unbounded
+   homogeneous-medium formula; the skull is approximated in Lab 1 and Lab 3
+   as a spatial blur plus attenuation. Splines follow Perrin et al. (m = 4).
+   ========================================================================= */
+const D2R=Math.PI/180, R_CM=9;
+function clamp(v,a,b){ return v<a?a:v>b?b:v; }
+function dot3(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm3(a){ const m=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/m,a[1]/m,a[2]/m]; }
+function dipV(P,s){ const d0=P[0]-s.r0[0], d1=P[1]-s.r0[1], d2=P[2]-s.r0[2]; const r2=d0*d0+d1*d1+d2*d2+2e-4; return (s.m[0]*d0+s.m[1]*d1+s.m[2]*d2)/(r2*Math.sqrt(r2)); }
+function sumV(P,list){ let v=0; for(const s of list) v+=dipV(P,s); return v; }
+function tangBasis(colat,az){ const t=colat*D2R, p=az*D2R; return [[Math.cos(t)*Math.sin(p), Math.cos(t)*Math.cos(p), -Math.sin(t)],[Math.cos(p), -Math.sin(p), 0]]; }
+function mkDip(colat,az,depthCm,orient,dirDeg,k){
+  const u=sph(colat,az); const r=1-depthCm/R_CM; const r0=u.map(x=>x*r); let m;
+  if(orient==='radial') m=u.slice();
+  else { const [eth,eph]=tangBasis(colat,az); const a=(dirDeg||0)*D2R; m=[0,1,2].map(i=>Math.cos(a)*eth[i]+Math.sin(a)*eph[i]); }
+  return {r0, m:m.map(x=>x*(k==null?1:k)), u, colat, az, depth:depthCm};
+}
+function angles(p){ const n=norm3(p); return {colat:Math.acos(clamp(n[2],-1,1))/D2R, az:Math.atan2(n[0],n[1])/D2R}; }
+function flatToSph(dx,dy,scale){ const rho=Math.hypot(dx,dy); return sph(rho*(scale||100), Math.atan2(dx,-dy)/D2R); }
+function sphToFlat(p,scale){ const n=norm3(p); const colat=Math.acos(clamp(n[2],-1,1))/D2R; const az=Math.atan2(n[0],n[1]); const rho=colat/(scale||100); return [rho*Math.sin(az), -rho*Math.cos(az)]; }
+function fibCap(N,maxColat){ const out=[], zmin=Math.cos(maxColat*D2R), ga=Math.PI*(3-Math.sqrt(5)); for(let i=0;i<N;i++){ const z=1-(1-zmin)*(i+.5)/N, r=Math.sqrt(1-z*z), th=ga*i; out.push([r*Math.sin(th), r*Math.cos(th), z]); } return out; }
+function nnMedianCm(pts){ const d=pts.map((p,i)=>{ let b=9; pts.forEach((q,j)=>{ if(i!==j){ const a=Math.acos(clamp(dot3(p,q),-1,1)); if(a<b) b=a; } }); return b; }).sort((a,b)=>a-b); return d[d.length>>1]*R_CM; }
+const MONO=()=>getComputedStyle(document.body).getPropertyValue('--f-mono');
+const BODYF=()=>getComputedStyle(document.body).getPropertyValue('--f-body');
+
+class Grid{
+  constructor(N,E){ this.N=N; this.E=E; this.d=new Float64Array(N*N); }
+  xy(i){ return -this.E+(i+.5)*2*this.E/this.N; }
+  fill(fn){ const N=this.N; for(let j=0;j<N;j++){ const dy=this.xy(j); for(let i=0;i<N;i++) this.d[j*N+i]=fn(this.xy(i),dy); } return this; }
+  sample(dx,dy){ const N=this.N,E=this.E; let fx=(dx+E)/(2*E)*N-.5, fy=(dy+E)/(2*E)*N-.5; fx=clamp(fx,0,N-1.001); fy=clamp(fy,0,N-1.001); const i=fx|0, j=fy|0, tx=fx-i, ty=fy-j, d=this.d;
+    return d[j*N+i]*(1-tx)*(1-ty)+d[j*N+i+1]*tx*(1-ty)+d[(j+1)*N+i]*(1-tx)*ty+d[(j+1)*N+i+1]*tx*ty; }
+  blurred(s){ const N=this.N, out=new Grid(N,this.E); if(s<0.3){ out.d.set(this.d); return out; }
+    const rad=Math.ceil(s*3), k=[]; let ks=0; for(let t=-rad;t<=rad;t++){ const w=Math.exp(-t*t/(2*s*s)); k.push(w); ks+=w; } for(let i=0;i<k.length;i++) k[i]/=ks;
+    const tmp=new Float64Array(N*N), d=this.d;
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){ let a=0; for(let t=-rad;t<=rad;t++) a+=k[t+rad]*d[j*N+clamp(i+t,0,N-1)]; tmp[j*N+i]=a; }
+    for(let j=0;j<N;j++) for(let i=0;i<N;i++){ let a=0; for(let t=-rad;t<=rad;t++) a+=k[t+rad]*tmp[clamp(j+t,0,N-1)*N+i]; out.d[j*N+i]=a; }
+    return out; }
+  maxAbs(lim){ let m=0; const N=this.N; for(let j=0;j<N;j++){ const dy=this.xy(j); for(let i=0;i<N;i++){ const dx=this.xy(i); if(dx*dx+dy*dy>(lim||1)) continue; const v=Math.abs(this.d[j*N+i]); if(v>m) m=v; } } return m||1e-12; }
+}
+
+function topoGeo(st,padTop,padBot){ const pt=padTop==null?30:padTop, pb=padBot==null?14:padBot; const Rt=Math.max(40,Math.min(st.w/2-24,(st.h-pt-pb)/2-6)); return {cx:st.w/2, cy:pt+(st.h-pt-pb)/2+4, Rt}; }
+function headOutline(ctx,{cx,cy,Rt}){ ctx.strokeStyle=C.ink; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(cx,cy,Rt,0,7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx-Rt*0.1,cy-Rt*0.995); ctx.lineTo(cx,cy-Rt*1.1); ctx.lineTo(cx+Rt*0.1,cy-Rt*0.995); ctx.stroke();
+  [-1,1].forEach(s=>{ ctx.beginPath(); ctx.ellipse(cx+s*Rt*1.035,cy,Rt*0.035,Rt*0.13,0,0,7); ctx.stroke(); }); }
+function paintTopo(st,heat,geo,fn,cell){ const ctx=st.ctx; ctx.fillStyle=C.surface; ctx.fillRect(0,0,st.w,st.h);
+  drawHeat(st,heat,cell||3,(x,y)=>{ const dx=(x-geo.cx)/geo.Rt, dy=(y-geo.cy)/geo.Rt; if(dx*dx+dy*dy>1) return null; return fn(dx,dy); });
+  headOutline(ctx,geo); }
+function flatPx(geo,p,scale){ const [dx,dy]=sphToFlat(p,scale); return [geo.cx+dx*geo.Rt, geo.cy+dy*geo.Rt]; }
+function cTitle(ctx,txt,x,y,color){ ctx.font='600 12.5px '+BODYF(); ctx.fillStyle=color||C.ink; ctx.textAlign='left'; ctx.textBaseline='alphabetic'; ctx.fillText(txt,x,y); }
+function cText(ctx,txt,x,y,color,align,size){ ctx.font='500 '+(size||10.5)+'px '+MONO(); ctx.fillStyle=color||C.muted; ctx.textAlign=align||'left'; ctx.fillText(txt,x,y); }
+function xMark(ctx,x,y,r,color){ ctx.strokeStyle=color||C.ink; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x-r,y-r); ctx.lineTo(x+r,y+r); ctx.moveTo(x+r,y-r); ctx.lineTo(x-r,y+r); ctx.stroke(); }
+
+/* spherical splines (Perrin et al. 1989), m = 4 */
+function legTable(coef,N){ const S=2001, T=new Float64Array(S); for(let k=0;k<S;k++){ const x=-1+2*k/(S-1); let pm=1,p=x,s=coef(1)*x; for(let n=2;n<=N;n++){ const pn=((2*n-1)*x*p-(n-1)*pm)/n; pm=p; p=pn; s+=coef(n)*p; } T[k]=s; }
+  return x=>{ const f=(clamp(x,-1,1)+1)*1000; const i=Math.min(1999,f|0), t=f-i; return T[i]*(1-t)+T[i+1]*t; }; }
+let SPL_G=null, SPL_H=null;
+function splTables(){ if(!SPL_G){ SPL_G=legTable(n=>(2*n+1)/(4*Math.PI*Math.pow(n*(n+1),4)),50); SPL_H=legTable(n=>(2*n+1)/(4*Math.PI*Math.pow(n*(n+1),3)),50); } }
+function luFactor(A,n){ const piv=new Int32Array(n); for(let i=0;i<n;i++) piv[i]=i;
+  for(let k=0;k<n;k++){ let p=k, mx=Math.abs(A[k*n+k]); for(let i=k+1;i<n;i++){ const v=Math.abs(A[i*n+k]); if(v>mx){mx=v;p=i;} }
+    if(p!==k){ for(let j=0;j<n;j++){ const t=A[k*n+j]; A[k*n+j]=A[p*n+j]; A[p*n+j]=t; } const t=piv[k]; piv[k]=piv[p]; piv[p]=t; }
+    const d=A[k*n+k]||1e-15; for(let i=k+1;i<n;i++){ const f=(A[i*n+k]/=d); if(f) for(let j=k+1;j<n;j++) A[i*n+j]-=f*A[k*n+j]; } }
+  return {A,piv,n}; }
+function luSolve({A,piv,n},b){ const x=new Float64Array(n); for(let i=0;i<n;i++) x[i]=b[piv[i]];
+  for(let i=0;i<n;i++){ let s=x[i]; for(let j=0;j<i;j++) s-=A[i*n+j]*x[j]; x[i]=s; }
+  for(let i=n-1;i>=0;i--){ let s=x[i]; for(let j=i+1;j<n;j++) s-=A[i*n+j]*x[j]; x[i]=s/A[i*n+i]; } return x; }
+function makeSpline(pts,lambda){ splTables(); const n=pts.length, N=n+1, A=new Float64Array(N*N);
+  for(let i=0;i<n;i++){ for(let j=0;j<n;j++) A[i*N+j]=SPL_G(dot3(pts[i],pts[j]))+(i===j?lambda:0); A[i*N+n]=1; A[n*N+i]=1; }
+  const lu=luFactor(A,N);
+  return { pts, n, coef(v){ const b=new Float64Array(N); for(let i=0;i<n;i++) b[i]=v[i]; return luSolve(lu,b); },
+    row(P,kind){ const f=kind==='h'?SPL_H:SPL_G, w=new Float64Array(n); for(let i=0;i<n;i++) w[i]=f(dot3(P,pts[i])); return w; } }; }
+function mapOperator(sp,N,kind,scale){ const g=new Grid(N,1), cells=[], W=[]; for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const dx=g.xy(i), dy=g.xy(j); if(dx*dx+dy*dy>1.13) continue; cells.push(j*N+i); W.push(sp.row(flatToSph(dx,dy,scale),kind)); } return {N,cells,W,kind}; }
+function applyMap(op,c,offset){ const g=new Grid(op.N,1); const n=c.length-1, c0=op.kind==='h'?0:c[n]; for(let k=0;k<op.cells.length;k++){ const w=op.W[k]; let s=c0; for(let i=0;i<n;i++) s+=c[i]*w[i]; g.d[op.cells[k]]=s-(offset||0); } return g; }
+
+/* idealized 10-10 positions (61) on the sphere; 10% of the nasion-inion arc = 18 deg */
+const E1010=(()=>{ const out=[]; const add=(n,c,a)=>out.push({n,colat:c,az:a,p:sph(c,a)});
+  const flat=(c,a)=>[c*Math.sin(a*D2R), c*Math.cos(a*D2R)]; const unflat=([x,y])=>[Math.hypot(x,y), Math.atan2(x,y)/D2R];
+  add('Fp1',72,-18); add('Fpz',72,0); add('Fp2',72,18);
+  const rows=[['AF',54,36,[3,7]],['F',36,54,[1,3,5,7]],['FC',18,72,[1,3,5,7]],['C',0,90,[1,3,5,7]],['CP',-18,108,[1,3,5,7]],['P',-36,126,[1,3,5,7]],['PO',-54,144,[3,7]]];
+  const ring={AF:'AF',F:'F',FC:'FT',C:'T',CP:'TP',P:'P',PO:'PO'};
+  for(const [pre,mc,ringAz,nums] of rows){ const left=[], right=[];
+    for(const num of nums){ const k=(num+1)/8; for(const side of [-1,1]){ const r=flat(72,side*ringAz); const pt=[r[0]*k, mc+(r[1]-mc)*k]; const [c,a]=unflat(pt);
+      const name=num===7?ring[pre]+(side<0?7:8):pre+(side<0?num:num+1); (side<0?left:right).push([name,c,a]); } }
+    left.reverse().forEach(e=>add(...e)); add(pre+'z',Math.abs(mc),mc>=0?0:180); right.forEach(e=>add(...e)); }
+  add('O1',72,-162); add('Oz',72,180); add('O2',72,162);
+  return out; })();
+const N1020=['Fp1','Fpz','Fp2','F7','F3','Fz','F4','F8','T7','C3','Cz','C4','T8','P7','P3','Pz','P4','P8','O1','Oz','O2'];
+const E1020_SET=E1010.filter(e=>N1020.includes(e.n));
+const MASTOIDS=[{n:'M1',colat:112,az:-112,p:sph(112,-112)},{n:'M2',colat:112,az:112,p:sph(112,112)}];
+
+/* =========================================================================
+   M2 LAB 1: VOLUME CONDUCTION
+   ========================================================================= */
+function labConduction(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">${seg('v1mode',[['two','Two sources'],['one','One source']],'two')}<span class="grow"></span><label class="check"><input type="checkbox" id="v1shared"> Same color scale for both maps</label></div>
+    <div class="split even">
+      <div class="stage"><canvas id="v1cx" aria-label="Potential map on the cortical surface"></canvas></div>
+      <div class="stage"><canvas id="v1sc" aria-label="Potential map at the scalp"></canvas></div>
+    </div>
+    <div class="stage scroll"><canvas id="v1pr" aria-label="Potential along a left to right line through the sources"></canvas></div>
+    <div class="stage scroll" id="v1trw"><canvas id="v1tr" aria-label="Signals at electrodes over each source"></canvas></div>
+    <div class="controls">
+      <div class="ctl"><label for="v1ratio">Skull resistivity, relative to brain <output id="v1ratioo"></output></label><input type="range" id="v1ratio" min="1" max="80" value="25"></div>
+      <div class="ctl" id="v1sepw"><label for="v1sep">Distance between sources <output id="v1sepo"></output></label><input type="range" id="v1sep" min="1" max="10" step="0.5" value="4"></div>
+      <div class="ctl"><label for="v1dep">Source depth below scalp <output id="v1depo"></output></label><input type="range" id="v1dep" min="1.4" max="4" step="0.1" value="1.8"></div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Scalp peak vs cortex peak (illustrative)</span><span class="v" id="v1amp">0</span></div>
+      <div class="readout"><span class="eyebrow" id="v1resl">Two peaks at the scalp</span><span class="v" id="v1res">0</span></div>
+      <div class="readout"><span class="eyebrow" id="v1corl">Correlation, electrodes over A and B</span><span class="v" id="v1cor">0</span></div>
+      <div class="legend"><span>−</span><span class="bar" style="background:${legendCSS()}"></span><span>+</span></div>
+    </div>
+  </div>`;
+  const S={mode:'two', ratio:25, sep:4, depth:1.8, shared:false};
+  const cx=setupCanvas($('#v1cx',root),w=>Math.max(260,Math.min(400,w*0.95)));
+  const sc=setupCanvas($('#v1sc',root),w=>Math.max(260,Math.min(400,w*0.95)));
+  const pr=setupCanvas($('#v1pr',root),()=>200);
+  const tr=setupCanvas($('#v1tr',root),()=>170);
+  const hA=makeHeat(), hB=makeHeat();
+  const N=80, E=1.15, RC=1-1.2/R_CM; let D={};
+  function compute(){
+    const th0=-34, d=S.mode==='two'? S.sep/R_CM/D2R : 0;
+    const ths=S.mode==='two'?[th0-d/2, th0+d/2]:[th0];
+    const srcs=ths.map(t=>mkDip(Math.abs(t), t<0?-90:90, S.depth,'radial',0,1));
+    const patches=ths.map(t=>patchSources(Math.abs(t), t<0?-90:90, 1, S.depth));
+    const sigma=2.6*Math.sqrt(S.ratio-1)/(2*E/N*100), att=1/(1+0.006*(S.ratio-1));
+    const cxA=patches.map(s=>new Grid(N,E).fill((dx,dy)=>{ const p=flatToSph(dx,dy); return sumV([p[0]*RC,p[1]*RC,p[2]*RC],s); }));
+    const scA=patches.map(s=>{ const g=new Grid(N,E).fill((dx,dy)=>sumV(flatToSph(dx,dy),s)).blurred(sigma); for(let i=0;i<g.d.length;i++) g.d[i]*=att; return g; });
+    const sum=gs=>{ const g=new Grid(N,E); gs.forEach(x=>{ for(let i=0;i<g.d.length;i++) g.d[i]+=x.d[i]; }); return g; };
+    const gCx=sum(cxA), gSc=sum(scA); const mCx=gCx.maxAbs(), mSc=gSc.maxAbs();
+    D={srcs,ths,cxA,scA,gCx,gSc,mCx,mSc};
+    $('#v1ratioo',root).textContent=S.ratio===1?'same as brain':S.ratio+'×';
+    $('#v1sepo',root).textContent=S.sep.toFixed(1)+' cm'; $('#v1depo',root).textContent=S.depth.toFixed(1)+' cm';
+    $('#v1sepw',root).style.visibility=S.mode==='two'?'visible':'hidden';
+    $('#v1amp',root).textContent=Math.round(mSc/mCx*100)+'%';
+    if(S.mode==='two'){
+      const prof=th=>gSc.sample(th/100,0); const a=prof(ths[0]), b=prof(ths[1]), mid=prof((ths[0]+ths[1])/2);
+      const dip=1-mid/Math.min(a,b);
+      $('#v1resl',root).textContent='Two peaks at the scalp'; $('#v1res',root).textContent=dip>0.05?`resolved (dip ${Math.round(dip*100)}%)`:'merged into one';
+      const corr=(G)=>{ const w=ths.map(t=>G.map(g=>g.sample(t/100,0))); const [a1,b1]=w[0], [a2,b2]=w[1]; return (a1*a2+b1*b2)/Math.sqrt((a1*a1+b1*b1)*(a2*a2+b2*b2)); };
+      $('#v1corl',root).textContent='Correlation, electrodes over A and B';
+      $('#v1cor',root).textContent=`cortex ${corr(cxA).toFixed(2)} · scalp ${corr(scA).toFixed(2)}`;
+    } else {
+      const area=(G,mx,r)=>{ let n=0; const cell=(2*E/N*100)*D2R*R_CM*r; for(let j=0;j<N;j++) for(let i=0;i<N;i++){ const dx=G.xy(i), dy=G.xy(j); if(dx*dx+dy*dy<=1 && Math.abs(G.d[j*N+i])>=0.5*mx) n++; } return n*cell*cell; };
+      $('#v1resl',root).textContent='Area above half maximum'; $('#v1res',root).textContent=`cortex ≈${area(gCx,mCx,RC).toFixed(0)} cm² · scalp ≈${area(gSc,mSc,1).toFixed(0)} cm²`;
+      $('#v1corl',root).textContent='Electrodes picking up half the peak';
+      let n=0; E1010.forEach(e=>{ const [dx,dy]=sphToFlat(e.p); if(Math.abs(gSc.sample(dx,dy))>=0.5*mSc) n++; });
+      $('#v1cor',root).textContent=`${n} of 61 (10-10 layout)`;
+    }
+    $('#v1trw',root).hidden=S.mode!=='two';
+    drawMaps(); drawProfile();
+  }
+  function drawMap(st,heat,G,vmax,title,isScalp){
+    const geo=topoGeo(st);
+    paintTopo(st,heat,geo,(dx,dy)=>G.sample(dx,dy)/vmax);
+    cTitle(st.ctx,title,12,18);
+    D.srcs.forEach((s,i)=>{ const [x,y]=flatPx(geo,s.u); xMark(st.ctx,x,y,5,C.ink); cText(st.ctx,S.mode==='two'?'AB'[i]:'',x+7,y-7,C.ink,'left',11); });
+    if(isScalp) E1010.forEach(e=>{ const [x,y]=flatPx(geo,e.p); st.ctx.fillStyle=rgb(C.inkRGB,0.55); st.ctx.beginPath(); st.ctx.arc(x,y,1.6,0,7); st.ctx.fill(); });
+  }
+  function drawMaps(){ drawMap(cx,hA,D.gCx,D.mCx,'On the cortex (what a grid on the brain would see)',false); drawMap(sc,hB,D.gSc,S.shared?D.mCx:D.mSc,'At the scalp, through skull and skin',true); }
+  function drawProfile(){
+    const ctx=pr.ctx,{w,h}=pr; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const L=46,R=w-14,T=34,B=h-34; const xs=th=>L+(th+90)/180*(R-L);
+    cTitle(ctx,'Potential along a left-to-right line through the sources',L-34,18);
+    const vC=D.mCx, vS=S.shared?D.mCx:D.mSc; const ys=v=>T+(1-v)/2*(B-T);
+    ctx.strokeStyle=C.line; ctx.lineWidth=1; [1,0,-1].forEach(v=>{ ctx.beginPath(); ctx.moveTo(L,ys(v)); ctx.lineTo(R,ys(v)); ctx.stroke(); });
+    cText(ctx,'max',L-6,ys(1)+4,C.muted,'right'); cText(ctx,'0',L-6,ys(0)+4,C.muted,'right');
+    const line=(fn,color,width,dash)=>{ ctx.strokeStyle=color; ctx.lineWidth=width; ctx.setLineDash(dash||[]); ctx.beginPath(); for(let k=0;k<=180;k++){ const th=-90+k; const y=ys(clamp(fn(th),-1.05,1.05)); k?ctx.lineTo(xs(th),y):ctx.moveTo(xs(th),y); } ctx.stroke(); ctx.setLineDash([]); };
+    line(th=>D.gCx.sample(th/100,0)/vC, C.muted, 1.6, [5,4]);
+    line(th=>D.gSc.sample(th/100,0)/vS, C.accent, 2.4);
+    D.ths.forEach((t,i)=>{ ctx.strokeStyle=rgb(C.inkRGB,0.35); ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(xs(t),T); ctx.lineTo(xs(t),B); ctx.stroke(); ctx.setLineDash([]); cText(ctx,S.mode==='two'?'AB'[i]:'source',xs(t),B+13,C.ink,'center',11); });
+    [-12,-8,-4,0,4,8].forEach(cm=>{ const th=cm/R_CM/D2R; cText(ctx,cm+'',xs(th),h-6,C.muted,'center'); });
+    cText(ctx,'cm from vertex →',R,h-6,C.muted,'right');
+    cText(ctx,'left ear',L,B+13,C.muted,'left'); cText(ctx,'right ear',R,B+13,C.muted,'right');
+    ctx.textAlign='right'; cText(ctx,'— scalp',R,T-8,C.accent,'right',11); cText(ctx,'- - cortex',R-70,T-8,C.muted,'right',11);
+  }
+  let time=0;
+  const sA=t=>Math.sin(2*Math.PI*10*t)*(0.65+0.35*Math.sin(2*Math.PI*0.7*t)), sB=t=>Math.sin(2*Math.PI*6.3*t+1)*(0.65+0.35*Math.sin(2*Math.PI*0.45*t+2));
+  function drawTraces(){
+    if(S.mode!=='two') return; const ctx=tr.ctx,{w,h}=tr; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const L=150,R=w-12, rows=[['cortex over A',D.cxA,0],['cortex over B',D.cxA,1],['scalp over A',D.scA,0],['scalp over B',D.scA,1]];
+    const rh=(h-24)/4;
+    cText(ctx,'A carries a 10 Hz rhythm, B a 6 Hz rhythm',L,14,C.muted);
+    rows.forEach(([lab,G,k],r)=>{ const y0=24+rh*(r+.5); const wA=G[0].sample(D.ths[k]/100,0), wB=G[1].sample(D.ths[k]/100,0); const mx=Math.abs(wA)+Math.abs(wB)||1;
+      cText(ctx,lab,12,y0+4,r<2?C.muted:C.accent,'left',11);
+      ctx.strokeStyle=r<2?C.muted:C.accent; ctx.lineWidth=1.5; ctx.beginPath();
+      for(let x=L;x<=R;x+=2){ const t=time+(x-L)/(R-L)*1.0; const v=(wA*sA(t)+wB*sB(t))/mx; const y=y0-v*rh*0.42; x===L?ctx.moveTo(x,y):ctx.lineTo(x,y); } ctx.stroke(); });
+  }
+  bindSeg(root,'v1mode',v=>{ S.mode=v; compute(); });
+  $('#v1shared',root).onchange=e=>{ S.shared=e.target.checked; drawMaps(); drawProfile(); };
+  let pend=0; const later=()=>{ cancelAnimationFrame(pend); pend=requestAnimationFrame(compute); };
+  $('#v1ratio',root).oninput=e=>{ S.ratio=+e.target.value; later(); };
+  $('#v1sep',root).oninput=e=>{ S.sep=+e.target.value; later(); };
+  $('#v1dep',root).oninput=e=>{ S.depth=+e.target.value; later(); };
+  cx.onresize=()=>D.gCx&&drawMaps(); sc.onresize=()=>D.gCx&&drawMaps(); pr.onresize=()=>D.gCx&&drawProfile();
+  compute();
+  const redraw=()=>{ drawMaps(); drawProfile(); }; themeListeners.add(redraw);
+  const stop=rafLoop(dt=>{ if(!reduceMotion) time+=dt/1000*0.35; drawTraces(); });
+  return ()=>{ stop(); [cx,sc,pr,tr].forEach(x=>x.destroy()); themeListeners.delete(redraw); };
+}
+
+/* =========================================================================
+   M2 LAB 2: FORWARD AND INVERSE PROBLEMS (single-dipole fitting)
+   ========================================================================= */
+function patchSources(colat,az,radiusCm,depth){ const u=sph(colat,az), [eth,eph]=tangBasis(colat,az), out=[];
+  const st=radiusCm/Math.ceil(radiusCm/0.75);
+  for(let i=-radiusCm;i<=radiusCm+1e-9;i+=st) for(let j=-radiusCm;j<=radiusCm+1e-9;j+=st){ if(Math.hypot(i,j)>radiusCm) continue; const d=norm3([0,1,2].map(k=>u[k]+(i*eth[k]+j*eph[k])/R_CM)); const a=angles(d); out.push(mkDip(a.colat,a.az,depth,'radial',0,1)); }
+  out.forEach(s=>s.m=s.m.map(x=>x/out.length*6)); return out; }
+const FIT_TARGETS={
+  focal:{label:'Map 1', srcs:()=>[mkDip(40,60,2.0,'radial',0,1)], note:'One focal source on a gyral crown. A single dipole explains this map almost completely and lands where the activity is.'},
+  auditory:{label:'Map 2', srcs:()=>[mkDip(72,-88,4.5,'tangential',0,1), mkDip(72,88,4.5,'tangential',0,1)], note:'Two sources, one in each auditory cortex, both pointing up and down along the temporal plane. Together they make one broad central negativity. The best single dipole sits deep in the midline, where nothing is active, and still explains about 85% of the map. A central maximum does not mean a central generator.'},
+  patch:{label:'Map 3', srcs:()=>patchSources(34,-50,3,1.6), note:'A patch of superficial cortex about 6 cm across, all active together. A single dipole fits it well but sits deeper than any of the real activity, because a broad map looks like a deep source.'},
+  distant:{label:'Map 4', srcs:()=>[mkDip(42,-25,2,'radial',0,1), mkDip(58,165,2,'radial',0,0.9)], note:'Two separate sources, frontal and parietal, active at the same time. No single dipole explains this map well. A low fit is a sign that the one-dipole assumption is wrong, so the model has to change.'}
+};
+function labInverse(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar"><span class="eyebrow">Recorded map</span><div class="chips" id="f2t">${Object.entries(FIT_TARGETS).map(([k,t],i)=>`<button class="chip" data-t="${k}" aria-pressed="${i===1}" type="button">${t.label}</button>`).join('')}</div><span class="grow"></span>
+      <button class="btn" id="f2auto" type="button">Find the best single dipole</button><button class="btn primary" id="f2rev" type="button">Reveal the true sources</button></div>
+    <div class="split even">
+      <div class="stage"><canvas id="f2tg" aria-label="Recorded scalp map"></canvas></div>
+      <div class="stage"><canvas id="f2md" aria-label="Your model map. Click or drag to move the dipole"></canvas></div>
+    </div>
+    <div class="stage scroll"><canvas id="f2vw" aria-label="Front and top views of the head with sources"></canvas></div>
+    <div class="note-box" id="f2note" hidden></div>
+    <div class="controls">
+      <div class="ctl"><label for="f2dep">Model dipole depth below scalp <output id="f2depo"></output></label><input type="range" id="f2dep" min="1" max="8" step="0.1" value="2"></div>
+      <div class="ctl"><span class="lbl">How to use</span><span style="font-size:13px;color:var(--muted)">Click or drag on the right map to move your dipole. Its orientation and strength are fitted for you at each position.</span></div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Variance explained</span><span class="v fit" id="f2gof">0%</span></div>
+      <div class="readout"><span class="eyebrow">Model depth</span><span class="v" id="f2d">0</span></div>
+      <div class="readout"><span class="eyebrow">Model orientation</span><span class="v" id="f2o">0</span></div>
+      <div class="readout"><span class="eyebrow">Sources that made the map</span><span class="v" id="f2n">hidden</span></div>
+    </div>
+  </div>`;
+  const tg=setupCanvas($('#f2tg',root),w=>Math.max(260,Math.min(400,w*0.95)));
+  const md=setupCanvas($('#f2md',root),w=>Math.max(260,Math.min(400,w*0.95)));
+  const vw=setupCanvas($('#f2vw',root),w=>w<560?Math.round(w*1.0):230);
+  const hT=makeHeat(), hM=makeHeat();
+  const EL=E1010.map(e=>e.p), NE=EL.length;
+  const S={target:'auditory', u:sph(30,-20), depth:2, reveal:false};
+  const FSP=makeSpline(EL,1e-7), FOP=mapOperator(FSP,56,'g');
+  let target, v, vnorm, model;
+  const avgRef=a=>{ let m=0; for(const x of a) m+=x; m/=a.length; return a.map(x=>x-m); };
+  const UNIT=[[1,0,0],[0,1,0],[0,0,1]];
+  function fitAt(p){
+    const G=UNIT.map(m=>avgRef(EL.map(e=>dipV(e,{r0:p,m}))));
+    const M=new Float64Array(9), y=new Float64Array(3);
+    for(let a=0;a<3;a++){ for(let b=0;b<3;b++){ let s=0; for(let k=0;k<NE;k++) s+=G[a][k]*G[b][k]; M[a*3+b]=s+(a===b?1e-9:0); } let s=0; for(let k=0;k<NE;k++) s+=G[a][k]*v[k]; y[a]=s; }
+    const m=luSolve(luFactor(M,3),y); let res=0; for(let k=0;k<NE;k++){ const f=m[0]*G[0][k]+m[1]*G[1][k]+m[2]*G[2][k]; res+=(v[k]-f)**2; }
+    return {m:[m[0],m[1],m[2]], gof:1-res/vnorm, p}; }
+  function setTarget(k){ S.target=k; target=FIT_TARGETS[k].srcs(); v=avgRef(EL.map(e=>sumV(e,target))); vnorm=v.reduce((a,x)=>a+x*x,0); S.reveal=false; $('#f2rev',root).textContent='Reveal the true sources'; update(); }
+  function modelPos(){ const r=1-S.depth/R_CM; return S.u.map(x=>x*r); }
+  function update(){
+    model=fitAt(modelPos());
+    $('#f2gof',root).textContent=Math.max(0,model.gof*100).toFixed(1)+'%';
+    $('#f2gof',root).style.color=model.gof>0.95?'var(--ok)':model.gof>0.8?'var(--warn)':'var(--pos)';
+    $('#f2depo',root).textContent=S.depth.toFixed(1)+' cm'; $('#f2d',root).textContent=angles(S.u).colat>99?`${((1-S.depth/R_CM)*R_CM).toFixed(1)} cm below head center`:S.depth.toFixed(1)+' cm below scalp';
+    const un=norm3(S.u), mn=norm3(model.m); const ang=Math.acos(Math.abs(clamp(dot3(un,mn),-1,1)))/D2R;
+    if(angles(S.u).colat>99){ const v=Math.acos(Math.abs(clamp(mn[2],-1,1)))/D2R; $('#f2o',root).textContent=`${Math.round(v)}° from vertical`; }
+    else $('#f2o',root).textContent=`${Math.round(ang)}° from radial (${ang<25?'radial':ang>65?'tangential':'oblique'})`;
+    $('#f2n',root).textContent=S.reveal?`${target.length>2?target.length+' dipoles (one patch)':target.length===1?'1 dipole':target.length+' dipoles'}`:'hidden';
+    $('#f2note',root).hidden=!S.reveal; $('#f2note',root).textContent=FIT_TARGETS[S.target].note;
+    draw();
+  }
+  function mapAt(fn,st,heat,title){ const geo=topoGeo(st);
+    let vmax=0; const vals=EL.map(fn); const mean=vals.reduce((a,x)=>a+x,0)/NE; const ref=vals.map(x=>x-mean); ref.forEach(x=>vmax=Math.max(vmax,Math.abs(x)));
+    const G=applyMap(FOP,FSP.coef(ref),0);
+    paintTopo(st,heat,geo,(dx,dy)=>dx*dx+dy*dy>0.6084?null:G.sample(dx,dy)/(vmax||1)); cTitle(st.ctx,title,12,18);
+    st.ctx.strokeStyle=rgb(C.inkRGB,0.3); st.ctx.setLineDash([3,4]); st.ctx.beginPath(); st.ctx.arc(geo.cx,geo.cy,geo.Rt*0.78,0,7); st.ctx.stroke(); st.ctx.setLineDash([]);
+    EL.forEach(e=>{ const [x,y]=flatPx(geo,e); st.ctx.fillStyle=rgb(C.inkRGB,0.6); st.ctx.beginPath(); st.ctx.arc(x,y,1.7,0,7); st.ctx.fill(); });
+    return geo; }
+  function draw(){
+    const g1=mapAt(e=>sumV(e,target),tg,hT,'Recorded map (average reference)');
+    if(S.reveal) target.forEach((s,i)=>{ if(target.length>3 && i%3) return; const [x,y]=flatPx(g1,s.u); xMark(tg.ctx,x,y,4,C.ink); });
+    const mdip={r0:model.p, m:model.m};
+    const g2=mapAt(e=>dipV(e,mdip),md,hM,'Your single-dipole model');
+    if(angles(S.u).colat<=99){ const [x,y]=flatPx(g2,S.u); md.ctx.fillStyle=C.accent; md.ctx.strokeStyle=C.surface; md.ctx.lineWidth=2; md.ctx.beginPath(); md.ctx.arc(x,y,6,0,7); md.ctx.fill(); md.ctx.stroke(); }
+    else cText(md.ctx,'your dipole sits below the center of the head',12,md.h-8,C.accent,'left',11);
+    if(angles(S.u).colat<=99) cText(md.ctx,'click or drag to move',md.w-10,md.h-8,C.muted,'right');
+    cText(tg.ctx,'map drawn where electrodes are',tg.w-10,tg.h-8,C.muted,'right');
+    drawViews();
+  }
+  function drawViews(){
+    const ctx=vw.ctx,{w,h}=vw; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const stack=w<560; const Rv=stack?Math.min(w*0.42,h*0.21):Math.min(h*0.38,w*0.2);
+    const centers=stack?[[w/2,h*0.27],[w/2,h*0.76]]:[[w*0.3,h*0.55],[w*0.7,h*0.55]];
+    const views=[['Seen from the front',p=>[p[0],-p[2]]],['Seen from above',p=>[p[0],-p[1]]]];
+    views.forEach(([title,proj],k)=>{ const [cx,cy]=centers[k];
+      ctx.strokeStyle=C.ink; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(cx,cy,Rv,0,7); ctx.stroke();
+      ctx.strokeStyle=rgb(C.inkRGB,0.2); ctx.beginPath(); ctx.arc(cx,cy,Rv*0.84,0,7); ctx.stroke();
+      if(k===1){ ctx.strokeStyle=C.ink; ctx.beginPath(); ctx.moveTo(cx-Rv*0.1,cy-Rv*0.995); ctx.lineTo(cx,cy-Rv*1.1); ctx.lineTo(cx+Rv*0.1,cy-Rv*0.995); ctx.stroke(); }
+      cTitle(ctx,title,cx-Rv,cy-Rv-10);
+      cText(ctx,'L',cx-Rv-12,cy+4,C.muted,'center'); cText(ctx,'R',cx+Rv+12,cy+4,C.muted,'center');
+      const P=p=>{ const q=proj(p); return [cx+q[0]*Rv, cy+q[1]*Rv]; };
+      const dipArrow=(r0,m,color,len)=>{ const a=P(r0); const mm=norm3(m); const b=P([r0[0]+mm[0]*len,r0[1]+mm[1]*len,r0[2]+mm[2]*len]); ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2; if(Math.hypot(b[0]-a[0],b[1]-a[1])>3) arrow(ctx,a[0],a[1],b[0],b[1],6); ctx.beginPath(); ctx.arc(a[0],a[1],4,0,7); ctx.fill(); };
+      if(S.reveal) target.forEach(s=>dipArrow(s.r0,s.m,C.pos,target.length>3?0:0.16));
+      dipArrow(model.p,model.m,C.accent,0.2);
+    });
+    cText(ctx,'teal = your dipole'+(S.reveal?' · red = true sources':''),w-10,h-8,C.muted,'right');
+  }
+  function autoFit(){
+    let best={gof:-1e9};
+    for(let x=-0.88;x<=0.88;x+=0.08) for(let y=-0.88;y<=0.88;y+=0.08) for(let z=-0.6;z<=0.88;z+=0.08){ const r=Math.hypot(x,y,z); if(r>1-1/R_CM) continue; const f=fitAt([x,y,z]); if(f.gof>best.gof) best=f; }
+    let step=0.04; for(let it=0;it<5;it++){ let improved=true; while(improved){ improved=false; for(const d of [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]]){ const p=best.p.map((c,i)=>c+d[i]*step); if(Math.hypot(...p)>1-1/R_CM) continue; const f=fitAt(p); if(f.gof>best.gof+1e-7){ best=f; improved=true; } } } step/=2; }
+    const r=Math.hypot(...best.p); S.u=r>1e-3?best.p.map(c=>c/r):[0,0,1]; S.depth=Math.min(8,(1-r)*R_CM); $('#f2dep',root).value=S.depth; update(); }
+  $('#f2t',root).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; $$('#f2t .chip',root).forEach(c=>c.setAttribute('aria-pressed',c===b)); setTarget(b.dataset.t); });
+  $('#f2rev',root).onclick=()=>{ S.reveal=!S.reveal; $('#f2rev',root).textContent=S.reveal?'Hide the true sources':'Reveal the true sources'; update(); };
+  $('#f2auto',root).onclick=()=>{ const b=$('#f2auto',root); b.disabled=true; b.textContent='Searching…'; setTimeout(()=>{ autoFit(); b.disabled=false; b.textContent='Find the best single dipole'; },30); };
+  $('#f2dep',root).oninput=e=>{ S.depth=+e.target.value; update(); };
+  const cv=$('#f2md',root); let drag=false;
+  const place=e=>{ const geo=topoGeo(md); const p=ptr(e,cv); let dx=(p.x-geo.cx)/geo.Rt, dy=(p.y-geo.cy)/geo.Rt; const r=Math.hypot(dx,dy); if(r>0.98){ dx*=0.98/r; dy*=0.98/r; } S.u=flatToSph(dx,dy); update(); };
+  cv.addEventListener('pointerdown',e=>{ drag=true; cv.setPointerCapture(e.pointerId); place(e); });
+  cv.addEventListener('pointermove',e=>{ if(drag) place(e); });
+  cv.addEventListener('pointerup',()=>drag=false);
+  tg.onresize=md.onresize=vw.onresize=()=>{ if(model) draw(); };
+  themeListeners.add(draw);
+  setTarget('auditory');
+  return ()=>{ [tg,md,vw].forEach(x=>x.destroy()); themeListeners.delete(draw); };
+}
+
+/* =========================================================================
+   M2 LAB 3: WHAT HIGH DENSITY BUYS (sampling + spherical spline reconstruction)
+   ========================================================================= */
+const DENS_COUNTS=[21,32,64,128,256];
+function labDensity(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">
+      <span class="eyebrow">Electrodes</span><div class="chips" id="d3n">${DENS_COUNTS.map(n=>`<button class="chip" data-n="${n}" aria-pressed="${n===64}" type="button">${n}${n===21?' (10-20)':''}</button>`).join('')}</div>
+      <span class="grow"></span>${seg('d3skull',[['skull','With skull'],['none','Without skull (hypothetical)']],'skull')}
+    </div>
+    <div class="tri">
+      <div class="stage"><canvas id="d3t" aria-label="True scalp field"></canvas></div>
+      <div class="stage"><canvas id="d3r" aria-label="Map reconstructed from the electrodes"></canvas></div>
+      <div class="stage"><canvas id="d3e" aria-label="Difference between reconstruction and truth"></canvas></div>
+    </div>
+    <div class="stage scroll"><canvas id="d3c" aria-label="Reconstruction error versus number of electrodes"></canvas></div>
+    <div class="controls"><div class="ctl"><span class="lbl">Brain activity</span>${seg('d3cfg',[['three','Three cortical sources'],['close','Two sources 2.5 cm apart']],'three')}</div></div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Typical electrode spacing</span><span class="v" id="d3sp">0</span></div>
+      <div class="readout"><span class="eyebrow">Reconstruction error</span><span class="v" id="d3er">0</span></div>
+      <div class="readout"><span class="eyebrow">Gain from the last doubling</span><span class="v" id="d3g">0</span></div>
+      <div class="legend"><span>−</span><span class="bar" style="background:${legendCSS()}"></span><span>+</span></div>
+    </div>
+  </div>`;
+  const S={n:64, skull:'skull', cfg:'three'};
+  const cvs=['d3t','d3r','d3e'].map(id=>setupCanvas($('#'+id,root),w=>Math.max(220,Math.min(330,w*0.98))));
+  const heats=cvs.map(()=>makeHeat());
+  const ch=setupCanvas($('#d3c',root),()=>210);
+  const CFG={ three:()=>[mkDip(40,-60,1.8,'radial',0,1), mkDip(50,45,2.2,'tangential',90,0.8), mkDip(62,170,1.8,'radial',0,-0.75)],
+              close:()=>{ const d=2.5/R_CM/D2R; return [mkDip(32-d/2,-65,1.7,'radial',0,1), mkDip(32+d/2,-65,1.7,'radial',0,1)]; } };
+  const sets={}; function elecs(n){ if(!sets[n]){ const pts=n===21?E1020_SET.map(e=>e.p):fibCap(n,105); const sp=makeSpline(pts,1e-7); sets[n]={pts,sp,op:mapOperator(sp,56,'g'),spacing:nnMedianCm(pts)}; } return sets[n]; }
+  const truths={};
+  function truth(cfg,skull){ const k=cfg+skull; if(truths[k]) return truths[k]; const srcs=CFG[cfg]();
+    let G=new Grid(80,1.15).fill((dx,dy)=>sumV(flatToSph(dx,dy),srcs)); if(skull==='skull') G=G.blurred(2.6*Math.sqrt(24)/(2.3/80*100));
+    const fn=p=>{ const [dx,dy]=sphToFlat(p); return G.sample(dx,dy); };
+    const disk=new Grid(56,1).fill((dx,dy)=>dx*dx+dy*dy>1.13?0:G.sample(dx,dy));
+    return truths[k]={G,fn,disk,vmax:disk.maxAbs(),srcs}; }
+  const errs={};
+  function recon(cfg,skull,n){ const T=truth(cfg,skull), e=elecs(n); const v=e.pts.map(T.fn); const c=e.sp.coef(v); const R=applyMap(e.op,c,0);
+    let num=0,den=0; const g=R; for(let j=0;j<g.N;j++) for(let i=0;i<g.N;i++){ const dx=g.xy(i),dy=g.xy(j); if(dx*dx+dy*dy>0.7225) continue; const t=T.disk.d[j*g.N+i], r=R.d[j*g.N+i]; num+=(r-t)**2; den+=t*t; }
+    return {R,err:Math.sqrt(num/den)}; }
+  function err(cfg,skull,n){ const k=cfg+skull+n; if(errs[k]==null) errs[k]=recon(cfg,skull,n).err; return errs[k]; }
+  let cur;
+  function update(){
+    const T=truth(S.cfg,S.skull), e=elecs(S.n); cur=recon(S.cfg,S.skull,S.n); errs[S.cfg+S.skull+S.n]=cur.err;
+    const titles=['True scalp field',`Reconstructed from ${S.n} electrodes`,'Difference (same scale)'];
+    const fns=[(dx,dy)=>T.disk.sample(dx,dy)/T.vmax,(dx,dy)=>cur.R.sample(dx,dy)/T.vmax,(dx,dy)=>(cur.R.sample(dx,dy)-T.disk.sample(dx,dy))/T.vmax];
+    cvs.forEach((st,k)=>{ const geo=topoGeo(st,28,10); paintTopo(st,heats[k],geo,fns[k]); cTitle(st.ctx,titles[k],10,17);
+      if(k===1) e.pts.forEach(p=>{ const [dx,dy]=sphToFlat(p); if(dx*dx+dy*dy>1) return; st.ctx.fillStyle=C.ink; st.ctx.beginPath(); st.ctx.arc(geo.cx+dx*geo.Rt,geo.cy+dy*geo.Rt,S.n>128?1.4:2,0,7); st.ctx.fill(); });
+      if(k===0) T.srcs.forEach(s=>{ const [x,y]=flatPx(geo,s.u); xMark(st.ctx,x,y,4,C.ink); }); });
+    $('#d3sp',root).textContent='≈'+e.spacing.toFixed(1)+' cm';
+    $('#d3er',root).textContent=(cur.err*100).toFixed(1)+'%';
+    const i=DENS_COUNTS.indexOf(S.n); $('#d3g',root).textContent=i>0?`${((err(S.cfg,S.skull,DENS_COUNTS[i-1])-cur.err)*100).toFixed(1)} points (from ${DENS_COUNTS[i-1]})`:'n/a';
+    drawChart();
+  }
+  function drawChart(){
+    const ctx=ch.ctx,{w,h}=ch; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const L=52,R=w-20,T=34,B=h-34; cTitle(ctx,'Reconstruction error by number of electrodes (top of the head, to 85° from the vertex)',L-40,18);
+    const series=[['skull','With skull',C.accent],['none','Without skull',C.muted]];
+    const data=series.map(([k])=>DENS_COUNTS.map(n=>err(S.cfg,k,n)*100));
+    const ymax=Math.max(10,Math.ceil(Math.max(...data.flat())/10)*10);
+    const xs=i=>L+i/(DENS_COUNTS.length-1)*(R-L), ys=v=>B-v/ymax*(B-T);
+    ctx.strokeStyle=C.line; ctx.lineWidth=1; for(let v=0;v<=ymax;v+=ymax/4){ ctx.beginPath(); ctx.moveTo(L,ys(v)); ctx.lineTo(R,ys(v)); ctx.stroke(); cText(ctx,Math.round(v)+'%',L-6,ys(v)+4,C.muted,'right'); }
+    DENS_COUNTS.forEach((n,i)=>cText(ctx,n+'',xs(i),B+14,n===S.n?C.ink:C.muted,'center',n===S.n?11.5:10.5));
+    cText(ctx,'electrodes',R,h-4,C.muted,'right');
+    series.forEach(([k,lab,color],si)=>{ const d=data[si]; const on=k===S.skull; ctx.strokeStyle=color; ctx.lineWidth=on?2.6:1.5; ctx.setLineDash(on?[]:[5,4]); ctx.beginPath(); d.forEach((v,i)=>i?ctx.lineTo(xs(i),ys(v)):ctx.moveTo(xs(i),ys(v))); ctx.stroke(); ctx.setLineDash([]);
+      d.forEach((v,i)=>{ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(xs(i),ys(v),on&&DENS_COUNTS[i]===S.n?5.5:3,0,7); ctx.fill(); });
+      cText(ctx,lab,xs(4)-8,ys(d[4])-9,color,'right',11); });
+  }
+  $('#d3n',root).addEventListener('click',e=>{ const b=e.target.closest('.chip'); if(!b) return; $$('#d3n .chip',root).forEach(c=>c.setAttribute('aria-pressed',c===b)); S.n=+b.dataset.n; update(); });
+  bindSeg(root,'d3skull',v=>{ S.skull=v; update(); });
+  bindSeg(root,'d3cfg',v=>{ S.cfg=v; update(); });
+  cvs.forEach(c=>c.onresize=()=>cur&&update()); ch.onresize=()=>cur&&drawChart();
+  themeListeners.add(update); update();
+  return ()=>{ cvs.forEach(c=>c.destroy()); ch.destroy(); themeListeners.delete(update); };
+}
+
+/* =========================================================================
+   M2 LAB 4: CHOOSING A REFERENCE (simulated auditory ERP)
+   ========================================================================= */
+function labReference(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">${seg('r4ref',[['inf','Infinity (simulation only)'],['cz','Vertex (Cz)'],['mast','Linked mastoids'],['avg','Average'],['csd','Surface Laplacian']],'cz')}</div>
+    <div class="split">
+      <div class="stage"><canvas id="r4w" aria-label="ERP waveforms at selected channels"></canvas></div>
+      <div class="stage"><canvas id="r4m" aria-label="Scalp map at the selected time"></canvas></div>
+    </div>
+    <div class="controls">
+      <div class="ctl"><label for="r4t">Time after the sound <output id="r4to"></output></label><input type="range" id="r4t" min="0" max="700" step="4" value="100"></div>
+      <div class="ctl"><span class="lbl">Playback</span><span><button class="btn" id="r4play" type="button">Play</button> <button class="btn ghost" id="r4n1" type="button">N1</button><button class="btn ghost" id="r4p3" type="button">P3</button></span></div>
+      <div class="ctl" id="r4covw"><span class="lbl">Average taken over</span>${seg('r4cov',[['sphere','Whole head'],['net','Net to face and neck'],['cap','Cap above the ears']],'net')}</div>
+    </div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Pz minus Fz at this time</span><span class="v" id="r4diff">0</span></div>
+      <div class="readout"><span class="eyebrow">Signal subtracted from every channel</span><span class="v" id="r4sub">0</span></div>
+      <div class="readout"><span class="eyebrow">Cz at this time</span><span class="v" id="r4cz">0</span></div>
+      <div class="legend"><span>−</span><span class="bar" style="background:${legendCSS()}"></span><span>+</span></div>
+    </div>
+  </div>`;
+  const CH=[...E1010,...MASTOIDS], NC=CH.length, idx=Object.fromEntries(CH.map((c,i)=>[c.n,i]));
+  const SHOW=['Fz','Cz','Pz','Oz','T7','T8','M1'];
+  const g=(t,mu,sd)=>Math.exp(-0.5*((t-mu)/sd)**2);
+  const SRC=[ {d:mkDip(72,-88,4.5,'tangential',0,1), tc:t=>2.2*(g(t,100,22)-0.6*g(t,190,35))},
+              {d:mkDip(72,88,4.5,'tangential',0,1),  tc:t=>2.2*(g(t,100,22)-0.6*g(t,190,35))},
+              {d:mkDip(32,180,3.6,'radial',0,1),     tc:t=>1.3*g(t,340,70)},
+              {d:mkDip(80,180,1.8,'radial',0,1),     tc:t=>0.45*g(t,95,16)} ];
+  const TT=[]; for(let t=0;t<=700;t+=4) TT.push(t); const NT=TT.length;
+  const LF=CH.map(c=>SRC.map(s=>dipV(c.p,s.d)));
+  const TC=TT.map(t=>SRC.map(s=>s.tc(t)));
+  let V=TT.map((_,k)=>CH.map((c,i)=>SRC.reduce((a,s,j)=>a+LF[i][j]*TC[k][j],0)));
+  let pk=0; V.forEach(r=>pk=Math.max(pk,r[idx.Pz])); const SC=10/pk; V=V.map(r=>r.map(x=>x*SC));
+  const covPts={ sphere:fibCap(600,180), net:fibCap(256,122), cap:fibCap(160,90) };
+  const covMean={}; for(const k in covPts){ const pts=covPts[k]; const lm=SRC.map(s=>pts.reduce((a,p)=>a+dipV(p,s.d),0)/pts.length); covMean[k]=TC.map(tc=>tc.reduce((a,x,j)=>a+x*lm[j],0)*SC); }
+  const sp=makeSpline(CH.map(c=>c.p),1e-5), opG=mapOperator(sp,60,'g'), opH=mapOperator(sp,60,'h');
+  const COEF=V.map(r=>sp.coef(r));
+  const Hee=CH.map(c=>sp.row(c.p,'h'));
+  let CSD=COEF.map(c=>Hee.map(w=>{ let s=0; for(let i=0;i<NC;i++) s+=c[i]*w[i]; return s; }));
+  let cm=0; CSD.forEach(r=>SHOW.forEach(n=>cm=Math.max(cm,Math.abs(r[idx[n]])))); let vm=0; V.forEach(r=>SHOW.forEach(n=>vm=Math.max(vm,Math.abs(r[idx[n]])))); const CSC=vm/cm; CSD=CSD.map(r=>r.map(x=>x*CSC));
+  const S={ref:'cz', cov:'net', k:25, play:false};
+  function sub(k){ const r=V[k]; switch(S.ref){ case 'cz': return r[idx.Cz]; case 'mast': return (r[idx.M1]+r[idx.M2])/2; case 'avg': return covMean[S.cov][k]; default: return 0; } }
+  function val(k,i){ return S.ref==='csd'? CSD[k][i] : V[k][i]-sub(k); }
+  const wv=setupCanvas($('#r4w',root),w=>Math.max(330,Math.min(420,w*0.75)));
+  const mp=setupCanvas($('#r4m',root),w=>Math.max(260,Math.min(380,w*0.95)));
+  const heat=makeHeat(); let vmaxW=1, vmaxM=1;
+  function scales(){ vmaxW=0; vmaxM=0; for(let k=0;k<NT;k++){ for(const n of SHOW) vmaxW=Math.max(vmaxW,Math.abs(val(k,idx[n]))); for(let i=0;i<NC-2;i++) vmaxM=Math.max(vmaxM,Math.abs(val(k,i))); } }
+  function draw(){
+    const k=S.k; const t=TT[k];
+    $('#r4to',root).textContent=t+' ms';
+    const unit=S.ref==='csd'?' (scaled)':' µV';
+    const d=val(k,idx.Pz)-val(k,idx.Fz); $('#r4diff',root).textContent=(d>=0?'+':'')+d.toFixed(2)+unit+(S.ref==='csd'?'':' (same for every reference)');
+    $('#r4sub',root).textContent=S.ref==='csd'?'none, spatial filter':S.ref==='inf'?'none':((sub(k)>=0?'+':'')+sub(k).toFixed(2)+' µV');
+    $('#r4cz',root).textContent=(val(k,idx.Cz)>=0?'+':'')+val(k,idx.Cz).toFixed(2)+unit;
+    $('#r4covw',root).style.visibility=S.ref==='avg'?'visible':'hidden';
+    drawWaves(); drawMap();
+  }
+  function drawWaves(){
+    const ctx=wv.ctx,{w,h}=wv; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const L=44,R=w-58,T=28,B=h-28; const rh=(B-T)/SHOW.length; const xs=t=>L+t/700*(R-L);
+    cTitle(ctx,S.ref==='csd'?'Current source density at 7 channels':'Simulated auditory ERP at 7 channels',12,17);
+    cText(ctx,'positive up',w-12,17,C.muted,'right');
+    ctx.strokeStyle=C.line; ctx.lineWidth=1; [0,100,200,300,400,500,600,700].forEach(t=>{ ctx.beginPath(); ctx.moveTo(xs(t),T); ctx.lineTo(xs(t),B); ctx.stroke(); cText(ctx,t+'',xs(t),B+13,C.muted,'center'); });
+    cText(ctx,'ms',R+16,B+13,C.muted,'left');
+    const amp=rh*0.48/vmaxW;
+    SHOW.forEach((n,r)=>{ const y0=T+rh*(r+.5), i=idx[n];
+      ctx.strokeStyle=rgb(C.inkRGB,0.18); ctx.beginPath(); ctx.moveTo(L,y0); ctx.lineTo(R,y0); ctx.stroke();
+      const isRef=(S.ref==='cz'&&n==='Cz')||(S.ref==='mast'&&n==='M1');
+      cText(ctx,n,L-8,y0+4,isRef?C.accent:C.ink,'right',11);
+      ctx.strokeStyle=isRef?C.accent:C.ink; ctx.lineWidth=1.6; ctx.beginPath();
+      for(let k=0;k<NT;k++){ const x=xs(TT[k]), y=y0-clamp(val(k,i)*amp,-rh*0.62,rh*0.62); k?ctx.lineTo(x,y):ctx.moveTo(x,y); } ctx.stroke(); });
+    const sb=vmaxW>8?5:vmaxW>3?2:1; const sx=w-34, sy=T+rh*0.6; ctx.strokeStyle=C.muted; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(sx,sy-sb*amp/2); ctx.lineTo(sx,sy+sb*amp/2); ctx.stroke();
+    if(S.ref!=='csd') cText(ctx,sb+' µV',sx,sy+sb*amp/2+13,C.muted,'center');
+    ctx.strokeStyle=C.accent; ctx.lineWidth=1.5; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(xs(TT[S.k]),T-4); ctx.lineTo(xs(TT[S.k]),B); ctx.stroke(); ctx.setLineDash([]);
+  }
+  function drawMap(){
+    const k=S.k; const geo=topoGeo(mp);
+    const G=S.ref==='csd'? applyMap(opH,COEF[k],0) : applyMap(opG,COEF[k],sub(k));
+    const sc=S.ref==='csd'? vmaxM : vmaxM;
+    if(S.ref==='csd'){ for(let i=0;i<G.d.length;i++) G.d[i]*=CSC; }
+    paintTopo(mp,heat,geo,(dx,dy)=>G.sample(dx,dy)/sc);
+    cTitle(mp.ctx,`Scalp map at ${TT[k]} ms`,12,18);
+    CH.forEach(c=>{ const [dx,dy]=sphToFlat(c.p); if(dx*dx+dy*dy>1) return; const x=geo.cx+dx*geo.Rt, y=geo.cy+dy*geo.Rt; mp.ctx.fillStyle=rgb(C.inkRGB,0.55); mp.ctx.beginPath(); mp.ctx.arc(x,y,1.6,0,7); mp.ctx.fill(); });
+    const ring=n=>{ const c=CH[idx[n]]; const [dx,dy]=sphToFlat(c.p); const r=Math.hypot(dx,dy); const f=r>1?0.995/r:1; const x=geo.cx+dx*f*geo.Rt, y=geo.cy+dy*f*geo.Rt; mp.ctx.strokeStyle=C.accent; mp.ctx.lineWidth=2.5; mp.ctx.beginPath(); mp.ctx.arc(x,y,7,0,7); mp.ctx.stroke(); };
+    if(S.ref==='cz') ring('Cz'); if(S.ref==='mast'){ ring('M1'); ring('M2'); }
+    cText(mp.ctx,S.ref==='cz'?'ring = reference electrode':S.ref==='mast'?'rings = mastoids (below the map edge)':S.ref==='csd'?'reference free':'',12,mp.h-8,C.muted);
+    cText(mp.ctx,'fixed scale',mp.w-10,mp.h-8,C.muted,'right');
+  }
+  function setRef(v){ S.ref=v; scales(); draw(); }
+  bindSeg(root,'r4ref',setRef); bindSeg(root,'r4cov',v=>{ S.cov=v; scales(); draw(); });
+  $('#r4t',root).oninput=e=>{ S.k=Math.round(+e.target.value/4); draw(); };
+  $('#r4n1',root).onclick=()=>{ S.k=25; $('#r4t',root).value=100; draw(); };
+  $('#r4p3',root).onclick=()=>{ S.k=85; $('#r4t',root).value=340; draw(); };
+  $('#r4play',root).onclick=e=>{ S.play=!S.play; e.target.textContent=S.play?'Pause':'Play'; };
+  const cvw=$('#r4w',root); let drag=false;
+  const seek=e=>{ const p=ptr(e,cvw); const t=clamp((p.x-44)/(wv.w-102)*700,0,700); S.k=Math.round(t/4); $('#r4t',root).value=TT[S.k]; draw(); };
+  cvw.addEventListener('pointerdown',e=>{ drag=true; cvw.setPointerCapture(e.pointerId); seek(e); }); cvw.addEventListener('pointermove',e=>{ if(drag) seek(e); }); cvw.addEventListener('pointerup',()=>drag=false);
+  wv.onresize=mp.onresize=()=>draw(); themeListeners.add(draw);
+  let acc=0; const stop=rafLoop(dt=>{ if(!S.play) return; acc+=dt; if(acc<40) return; acc=0; S.k=(S.k+1)%NT; $('#r4t',root).value=TT[S.k]; draw(); });
+  setRef('cz');
+  return ()=>{ stop(); wv.destroy(); mp.destroy(); themeListeners.delete(draw); };
+}
+
+/* =========================================================================
+   M2 LAB 5: MONTAGE AND LAYOUT
+   ========================================================================= */
+function icosphere(f){ const v=[[0,0,1],[0,0,-1]]; const zr=1/Math.sqrt(5), rr=2/Math.sqrt(5);
+  for(let k=0;k<5;k++){ const a=k*72*D2R; v.push([rr*Math.sin(a),rr*Math.cos(a),zr]); } for(let k=0;k<5;k++){ const a=(k*72+36)*D2R; v.push([rr*Math.sin(a),rr*Math.cos(a),-zr]); }
+  const U=k=>2+(k%5), Lw=k=>7+(k%5), F=[]; for(let k=0;k<5;k++){ F.push([0,U(k),U(k+1)],[1,Lw(k+1),Lw(k)],[U(k),Lw(k),U(k+1)],[U(k+1),Lw(k),Lw(k+1)]); }
+  const seen=new Map();
+  for(const [a,b,c] of F){ const A=v[a],B=v[b],Cc=v[c]; for(let i=0;i<=f;i++) for(let j=0;j<=f-i;j++){ const p=norm3([0,1,2].map(d=>A[d]+(B[d]-A[d])*i/f+(Cc[d]-A[d])*j/f)); const key=p.map(x=>Math.round(x*1e4)).join(','); if(!seen.has(key)) seen.set(key,p); } }
+  return [...seen.values()]; }
+function geodesic(N,f){ const pts=icosphere(f).sort((a,b)=>b[2]-a[2]||Math.atan2(a[0],a[1])-Math.atan2(b[0],b[1])).slice(0,N); return pts.map((p,i)=>({n:i===0?'VREF':'E'+i,p,...angles(p)})); }
+function labLayout(root){
+  root.innerHTML=`
+  <div class="lab">
+    <div class="lab-bar">${seg('l5view',[['sag','Front to back'],['cor','Ear to ear']],'sag')}<span class="grow"></span><label class="check"><input type="checkbox" id="l5ten"> Show 10-10 positions</label></div>
+    <div class="stage scroll"><canvas id="l5m" aria-label="How 10-20 positions are measured"></canvas></div>
+  </div>
+  <div class="lab">
+    <div class="lab-bar"><span class="eyebrow">Layout</span>${seg('l5sys',[['1020','10-20 (21)'],['1010','10-10 (61)'],['g128','Geodesic 128'],['g256','Geodesic 256']],'g128')}</div>
+    <div class="stage"><canvas id="l5l" aria-label="Electrode layout seen from above; hover an electrode"></canvas><div class="tip" id="l5tip" hidden></div></div>
+    <div class="lab-foot">
+      <div class="readout"><span class="eyebrow">Channels</span><span class="v" id="l5n">0</span></div>
+      <div class="readout"><span class="eyebrow">Typical spacing</span><span class="v" id="l5sp">0</span></div>
+      <div class="readout"><span class="eyebrow">Below ear level</span><span class="v" id="l5low">0</span></div>
+      <div class="readout"><span class="eyebrow">Recording reference</span><span class="v" id="l5ref">0</span></div>
+    </div>
+  </div>`;
+  const ms=setupCanvas($('#l5m',root),w=>Math.max(280,Math.min(360,w*0.55)));
+  const ls=setupCanvas($('#l5l',root),w=>Math.max(320,Math.min(560,w*0.8)));
+  const tip=$('#l5tip',root);
+  const S={view:'sag', ten:false, sys:'g128'};
+  const SYS={ '1020':{pts:E1020_SET, ref:'set by the amplifier (often Cz, FCz or a mastoid)'}, '1010':{pts:E1010, ref:'set by the amplifier (often Cz, FCz or a mastoid)'},
+              g128:{pts:null,f:4,N:128, ref:'vertex electrode (VREF)'}, g256:{pts:null,f:6,N:256, ref:'vertex electrode (VREF)'} };
+  function sysPts(k){ const s=SYS[k]; if(!s.pts) s.pts=geodesic(s.N,s.f); if(s.sp==null) s.sp=nnMedianCm(s.pts.map(e=>e.p)); return s; }
+  function drawMeasure(){
+    const ctx=ms.ctx,{w,h}=ms; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const cx=w/2, base=h*0.76, Ra=Math.min(w*0.34,h*0.56);
+    ctx.strokeStyle=rgb(C.inkRGB,0.25); ctx.lineWidth=1.4; ctx.fillStyle=rgb(C.inkRGB,0.05);
+    ctx.beginPath(); ctx.arc(cx,base,Ra*1.1,Math.PI,0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    if(S.view==='sag'){ cText(ctx,'face',cx-Ra*1.1-6,base-6,C.muted,'right'); cText(ctx,'back of head',cx+Ra*1.1+6,base-6,C.muted,'left'); }
+    else { cText(ctx,'left ear',cx-Ra*1.1-6,base-6,C.muted,'right'); cText(ctx,'right ear',cx+Ra*1.1+6,base-6,C.muted,'left'); }
+    const pt=pct=>{ const a=Math.PI*(1-pct/100); return [cx+Ra*Math.cos(a), base-Ra*Math.sin(a)]; };
+    ctx.strokeStyle=C.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,base,Ra,Math.PI,0); ctx.stroke();
+    const ends=S.view==='sag'?['Nasion','Inion']:['Left preauricular','Right preauricular'];
+    [[0,ends[0]],[100,ends[1]]].forEach(([p,n])=>{ const [x,y]=pt(p); ctx.fillStyle=C.ink; ctx.beginPath(); ctx.arc(x,y,4,0,7); ctx.fill(); cText(ctx,n,x,y+18,C.ink,'center',11); });
+    const main=S.view==='sag'?[[10,'Fpz'],[30,'Fz'],[50,'Cz'],[70,'Pz'],[90,'Oz']]:[[10,'T7'],[30,'C3'],[50,'Cz'],[70,'C4'],[90,'T8']];
+    const ten=S.view==='sag'?[[20,'AFz'],[40,'FCz'],[60,'CPz'],[80,'POz']]:[[20,'C5'],[40,'C1'],[60,'C2'],[80,'C6']];
+    const seglab=[[5,'10%'],[20,'20%'],[40,'20%'],[60,'20%'],[80,'20%'],[95,'10%']];
+    seglab.forEach(([p,l])=>{ const a=Math.PI*(1-p/100); cText(ctx,l,cx+(Ra-16)*Math.cos(a),base-(Ra-16)*Math.sin(a)+4,C.muted,'center',10); });
+    const dot=(p,n,big)=>{ const [x,y]=pt(p); const a=Math.PI*(1-p/100); ctx.fillStyle=big?C.accent:C.surface; ctx.strokeStyle=C.accent; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,big?7:5,0,7); ctx.fill(); ctx.stroke(); cText(ctx,n,x+Math.cos(a)*20,y-Math.sin(a)*20+4,big?C.ink:C.muted,'center',big?12:10.5); };
+    if(S.ten) ten.forEach(([p,n])=>dot(p,n,false)); main.forEach(([p,n])=>dot(p,n,true));
+    cTitle(ctx,S.view==='sag'?'Midline, measured from nasion to inion':'Coronal line through Cz, measured between the preauricular points',12,18);
+    cText(ctx,'The 10-20 name means 10% and 20% steps along these arcs, not fixed distances',12,h-8,C.muted);
+  }
+  let proj=[];
+  function drawLayout(){
+    const ctx=ls.ctx,{w,h}=ls; ctx.fillStyle=C.surface; ctx.fillRect(0,0,w,h);
+    const s=sysPts(S.sys); const SC=130; const Rt=Math.min(w/2-30,h/2-30); const geo={cx:w/2,cy:h/2+6,Rt};
+    const ear=geo.Rt*90/SC;
+    ctx.fillStyle=rgb(C.accentRGB,0.07); ctx.beginPath(); ctx.arc(geo.cx,geo.cy,ear,0,7); ctx.fill();
+    headOutline(ctx,{cx:geo.cx,cy:geo.cy,Rt:ear});
+    ctx.strokeStyle=rgb(C.inkRGB,0.25); ctx.setLineDash([3,4]); ctx.beginPath(); ctx.arc(geo.cx,geo.cy,geo.Rt*72/SC,0,7); ctx.stroke(); ctx.setLineDash([]);
+    cText(ctx,'solid outline = ear level',w-12,40,C.muted,'right'); cText(ctx,'dashed ring = 10-20 outer ring (Fpz, T7, Oz)',w-12,54,C.muted,'right');
+    proj=s.pts.map(e=>{ const [dx,dy]=sphToFlat(e.p,SC); return {e,x:geo.cx+dx*geo.Rt,y:geo.cy+dy*geo.Rt}; });
+    const big=s.pts.length<=61;
+    proj.forEach(({e,x,y})=>{ const ref=e.n==='VREF'; const low=e.colat>90; ctx.fillStyle=ref?C.accent:low?C.surface:C.ink; ctx.strokeStyle=ref?C.accent:C.ink; ctx.lineWidth=1.3; ctx.beginPath(); ctx.arc(x,y,ref?6:big?4.2:2.8,0,7); ctx.fill(); ctx.stroke();
+      if(big && S.sys==='1020') cText(ctx,e.n,x,y-8,C.ink,'center',10.5); });
+    if(S.sys==='1010') proj.forEach(({e,x,y})=>cText(ctx,e.n,x,y-7,C.muted,'center',8.5));
+    cTitle(ctx,'Seen from above, nose up',12,18);
+    cText(ctx,S.sys[0]==='g'?'Illustrative geodesic layout. Use your net’s sensor file for real positions.':'Idealized positions on a spherical head',12,h-8,C.muted);
+    const low=s.pts.filter(e=>e.colat>90).length;
+    $('#l5n',root).textContent=s.pts.length; $('#l5sp',root).textContent='≈'+s.sp.toFixed(1)+' cm';
+    $('#l5low',root).textContent=low?`${low} electrodes (open circles)`:'none';
+    $('#l5ref',root).textContent=s.ref;
+  }
+  const cv=$('#l5l',root);
+  cv.addEventListener('pointermove',e=>{ const p=ptr(e,cv); let b=null,bd=144; proj.forEach(o=>{ const d=(o.x-p.x)**2+(o.y-p.y)**2; if(d<bd){bd=d;b=o;} });
+    if(!b){ tip.hidden=true; return; } let txt=b.e.n;
+    if(S.sys[0]==='g'){ let nb=null,na=9; E1010.forEach(t=>{ const a=Math.acos(clamp(dot3(t.p,b.e.p),-1,1)); if(a<na){na=a;nb=t;} }); txt+=b.e.n==='VREF'?'  vertex reference':`  nearest 10-10: ${nb.n} (${(na*R_CM).toFixed(1)} cm)`; }
+    tip.hidden=false; tip.style.left=b.x+'px'; tip.style.top=b.y+'px'; tip.textContent=txt; });
+  cv.addEventListener('pointerleave',()=>tip.hidden=true);
+  bindSeg(root,'l5view',v=>{ S.view=v; drawMeasure(); });
+  $('#l5ten',root).onchange=e=>{ S.ten=e.target.checked; drawMeasure(); };
+  bindSeg(root,'l5sys',v=>{ S.sys=v; tip.hidden=true; drawLayout(); });
+  ms.onresize=drawMeasure; ls.onresize=drawLayout; const redraw=()=>{ drawMeasure(); drawLayout(); }; themeListeners.add(redraw);
+  redraw();
+  return ()=>{ ms.destroy(); ls.destroy(); themeListeners.delete(redraw); };
+}
+
+/* =========================================================================
+   MODULE 2 PAGES
+   ========================================================================= */
+const QUIZ2=[
+  {q:"True or false: a reference electrode is silent.", o:["True","False"], a:1,
+   why:"False. The reference sits on the head and picks up brain activity like any other site. Its signal appears, inverted, in every channel. In Lab 4, the Cz channel is flat under a vertex reference because it is being subtracted from itself.", link:"reference"},
+  {q:"True or false: re-referencing changes the data.", o:["True","False"], a:1,
+   why:"False. It changes how the same data are expressed. Every reference subtracts one signal from all channels, so differences between sites stay the same. Lab 4 shows Pz minus Fz unchanged across references.", link:"reference"},
+  {q:"True or false: with enough channels, source localization becomes exact.", o:["True","False"], a:1,
+   why:"False. More channels sample the map more finely, but many source configurations still produce the same scalp map. The inverse problem stays ill posed and needs assumptions.", link:"inverse"},
+  {q:"True or false: a frontal effect comes from frontal cortex.", o:["True","False"], a:1,
+   why:"False. Topography and generator location are related but not the same. Two tangential sources in the auditory cortices produce a fronto-central peak, as in Lab 2, Map 2.", link:"inverse"},
+  {q:"Why are neighboring channels highly correlated even when their sources differ?", o:["Electrodes share the same amplifier","Volume conduction spreads each source over a wide area of scalp, so each channel mixes several sources","The skull amplifies signals that are close together","Neighboring electrodes always sit over the same gyrus"], a:1,
+   why:"Current spreads through brain, CSF, skull and scalp, and the poorly conducting skull smooths the field. Each channel therefore carries a blend of sources, and nearby channels share most of that blend.", link:"conduction"},
+  {q:"A net stops above the face and neck. What happens to the average reference?", o:["Nothing, the average is always zero","It is biased, because the average only approximates zero when the whole head is sampled evenly","It becomes identical to a vertex reference","It removes all volume conduction"], a:1,
+   why:"On a closed head surface the potential from brain sources averages to roughly zero. Leave out the lower head and the average no longer cancels, so a residual signal is subtracted from every channel.", link:"reference"},
+  {q:"What does going from 128 to 256 channels buy you?", o:["It removes skull blurring","Finer sampling, but the skull has already smoothed the field, so the gain is small","Exact source localization","A neutral reference"], a:1,
+   why:"Extra channels help until the electrodes are closer than the smallest detail the skull lets through. After that, they add little. Lab 3 shows the error curve flattening with the skull and still falling without it.", link:"density"},
+  {q:"What does a surface Laplacian emphasize, and what does it throw away?", o:["It emphasizes deep sources and removes superficial ones","It emphasizes local, superficial activity and suppresses broad fields such as those from deep or distant sources","It restores the true reference at infinity","It only removes line noise"], a:1,
+   why:"The Laplacian measures how sharply the potential curves at each site. That highlights focal, superficial generators and attenuates broad, smooth fields, including real deep or widespread activity.", link:"reference"}
+];
+PAGES.m2=(page)=>{
+  const objs=["Explain volume conduction and how skull and scalp attenuate and spatially smear cortical activity.","Define the forward and inverse problems, and explain why the inverse problem has no unique solution without added assumptions.","State what high-density recording (128 or 256 channels) improves and what it cannot fix.","Explain why no reference is neutral, and why a channel's value is always a difference between two sites.","Describe the assumptions behind a vertex reference, an average reference and a surface Laplacian (current source density).","Predict how changing the reference alters waveforms and topographies without changing the underlying data."];
+  const outline=[
+    ["conduction","Volume conduction","Current spreads through brain, CSF, skull and scalp. Watch the skull blur two sources into one and make neighboring channels correlated."],
+    ["inverse","Forward and inverse problems","Fit a single dipole to recorded maps. Some fit well even when the real sources are elsewhere."],
+    ["density","What high density buys","Sample the same field with 21 to 256 electrodes and see where extra channels stop helping."],
+    ["reference","Choosing a reference","One simulated ERP under vertex, linked mastoid, average and Laplacian references."],
+    ["layout","Montage and layout","How 10-20 positions are measured, and how 10-10 and geodesic layouts compare."],
+    ["reading","Reading a scalp channel","What a single channel value means and what to check before interpreting it."]
+  ];
+  const M=modOf('m2');
+  page.innerHTML=`
+    <header class="head">
+      <span class="eyebrow">Theory Track · Module 2</span>
+      <h1>Volume conduction, source problems, reference and montage</h1>
+      <p class="lead" style="max-width:68ch">${esc(M.summary)}</p>
+      <div class="meta-row"><span><b>Prep</b> 45 to 60 min</span><span><b>Discussion</b> 60 min</span><span><b>Builds on</b> <a href="#overview" data-go="overview">Module 1</a></span></div>
+    </header>
+    <section class="panel"><h3>Learning objectives</h3><p style="color:var(--muted);font-size:13.5px;margin-bottom:8px">Tick each one when you can explain it to a colleague without notes.</p><div class="obj" id="objs">${objs.map((o,i)=>`<label><input type="checkbox" data-i="${i}" ${store.data.obj[keyFor('m2',i)]?'checked':''}><span>${esc(o)}</span></label>`).join('')}</div></section>
+    <section class="panel"><h3>Explainer outline</h3><div class="outline">${outline.map(([id,t,d],i)=>`<a href="#${id}" data-go="${id}"><span class="n">${String(i+1).padStart(2,'0')}</span><span><b>${t}</b><span class="d">${d}</span></span><span class="tag">${esc(SEC(id).kind)}</span></a>`).join('')}</div></section>
+    <section class="panel"><h3>Prep reading</h3>
+      <div class="reading"><span class="eyebrow">Core</span><i>Analyzing Neural Time Series Data</i><span>Cohen (2014), MIT Press. The short chapters on the physics of EEG and on referencing. Read for concepts and skip the code.</span></div>
+      <div class="reading"><span class="eyebrow">Optional deeper</span><i>Which reference should we use for EEG and ERP practice?</i><span>Yao et al. (2019), Brain Topography. <a href="https://doi.org/10.1007/s10548-019-00707-x" target="_blank" rel="noopener">doi.org/10.1007/s10548-019-00707-x</a></span></div>
+      <div class="reading"><span class="eyebrow">Optional deeper</span><i>On the benefits of using surface Laplacian (current source density) methodology in electrophysiology</i><span>Kayser and Tenke (2015), International Journal of Psychophysiology. <a href="https://doi.org/10.1016/j.ijpsycho.2015.06.001" target="_blank" rel="noopener">doi.org/10.1016/j.ijpsycho.2015.06.001</a></span></div>
+      <div class="reading"><span class="eyebrow">Optional deeper</span><i>EEG source imaging: a practical review of the analysis steps</i><span>Michel and Brunet (2019), Frontiers in Neurology. <a href="https://doi.org/10.3389/fneur.2019.00325" target="_blank" rel="noopener">doi.org/10.3389/fneur.2019.00325</a></span></div>
+      <div class="reading"><span class="eyebrow">For trainers</span><i>Electric Fields of the Brain</i><span>Nunez and Srinivasan.</span></div>
+    </section>
+    <section class="callout"><b>How the labs are built</b><span style="color:var(--muted)">All labs use a spherical head 9 cm in radius with dipole sources. Labs 1 and 3 approximate the skull as a spatial blur plus attenuation, which shows the direction and rough size of the effect but is not a full head model. Topographic maps and the surface Laplacian use spherical splines, the same method most analysis software uses. Values are relative unless marked as simulated µV.</span></section>
+    <section class="related" id="related" hidden></section>`;
+  $('#objs',page).addEventListener('change',e=>{ store.data.obj[keyFor('m2',e.target.dataset.i)]=e.target.checked; store.save(); updateProgress(); });
+  return renderRelated($('#related',page),'m2','m2');
+};
+PAGES.conduction=labPage(SEC('conduction'),
+  `<p class="lead">Current from a cortical source does not stay put. It spreads through brain, cerebrospinal fluid, skull and scalp. The skull conducts poorly, so the field spreads sideways inside it before reaching the electrodes. Estimates of how much more the skull resists current than brain range widely, from about 15 to 80 times.</p>`,
+  labConduction,
+  ["Start with two sources 4 cm apart and the skull at 25×. Compare the two maps: two clear peaks on the cortex, a single blob at the scalp.","Read the correlation between the electrodes over A and B. On the cortex the two signals are nearly independent; at the scalp they share most of their signal, and the 6 Hz rhythm shows up over A.","Drag the skull slider down to 1×, then up to 80×. Separate the sources until the scalp shows two peaks again and note the distance."],
+  "Volume conduction spreads each source over a wide area of scalp, and the skull widens and weakens that spread. Neighboring channels end up highly correlated even when their sources differ, and a single source can appear at many sites. No scalp waveform can be read as the activity directly under its electrode.");
+PAGES.inverse=labPage(SEC('inverse'),
+  `<p class="lead">The forward problem is unique: given the sources and a head model, there is one scalp map. The inverse problem is not. Many source configurations produce the same map, so any answer depends on the assumptions you add. Here the assumption is a single dipole. Fit it to each recorded map, then reveal what actually produced it.</p>`,
+  labInverse,
+  ["Map 2 is loaded. Click Find the best single dipole. Note the fit and where the dipole lands in the front and top views, then reveal the true sources.","Try Map 3. The fit is good again. Compare the model depth with the depth of the real activity.","Try Map 4 and fit it. A poor fit tells you the model is wrong; a good fit alone does not tell you the model is right."],
+  "A good fit is not proof of a correct source. A deep midline dipole explains two bilateral auditory sources, and a deeper dipole explains a broad superficial patch. Source estimates are only as good as the constraints behind them: distributed models, priors, and head models built from each person's MRI.");
+PAGES.density=labPage(SEC('density'),
+  `<p class="lead">More electrodes sample the scalp field more finely. But the skull has already smoothed that field before any electrode sees it. Once electrodes sit closer together than the smallest detail the skull lets through, extra channels add little. Here the same activity is sampled with 21 to 256 electrodes and the map is rebuilt with spherical splines.</p>`,
+  labDensity,
+  ["Step through 21, 32, 64, 128 and 256 with the skull on. Watch the error and the gain from each doubling.","Switch to Without skull. The field is sharper, and the error keeps falling as channels are added. This is the detail the skull removes.","Choose Two sources 2.5 cm apart. Check whether any channel count separates them at the scalp."],
+  "High density gives finer spatial sampling, better topographic detail, and more reliable source estimates when paired with an individual head model. It does not undo skull blurring, so there is a point beyond which extra channels add little. Sampling more points of an already blurred field still gives a blurred field.");
+PAGES.reference=labPage(SEC('reference'),
+  `<p class="lead">A potential only exists between two points, so every channel is a difference: this site minus the reference. The reference is on the head and picks up brain activity too. Whatever it records is subtracted from every channel. Here one simulated auditory ERP (N1, P2 and P3) is shown under each common choice. Only a simulation can show the reference at infinity.</p>`,
+  labReference,
+  ["Start with Vertex (Cz), the reference the net uses during recording. Cz is flat, and the N1 at 100 ms looks small at central sites. Switch to Infinity and compare.","Switch to Average and change what the average is taken over. Watch the signal subtracted from every channel grow when the lower head is missing.","Check Pz minus Fz under each reference. It does not change. Then try Surface Laplacian and compare the map with Infinity at the N1 and at the P3."],
+  "Re-referencing subtracts one signal from every channel. It changes how the data are expressed, not the data: differences between sites are preserved. The vertex reference hides activity near the vertex. Linked mastoids pick up temporal activity. The average reference assumes even, complete coverage of the head. The surface Laplacian is reference free; it emphasizes local activity and suppresses broad fields.");
+PAGES.layout=labPage(SEC('layout'),
+  `<p class="lead">A channel name only means something with its position attached. The 10-20 system places electrodes at 10% and 20% steps between skull landmarks, so positions scale with head size. The 10-10 system fills in the gaps. Geodesic nets like the GSN 128 and 256 tile the head evenly and reach the cheeks and neck, which classic caps do not.</p>`,
+  labLayout,
+  ["Look at the midline view, then the ear-to-ear view. Turn on the 10-10 positions and see how they split each 20% step.","Hover electrodes in the geodesic 128 layout to find the nearest 10-10 name. Most sensors have no exact 10-20 equivalent.","Compare the open circles below ear level in the 128 and 256 layouts. Those are the channels that make an average reference closer to complete, and they are often the noisiest."],
+  "Positions, not names, carry the meaning. 10-20 and 10-10 positions are proportional to each head, while geodesic nets are defined by the net's own sensor map. Always analyze with the layout file for the exact net and size used, and report it with the reference.");
+PAGES.reading=(page)=>{
+  page.innerHTML=`
+    <header class="head"><span class="eyebrow">Module 2 · Synthesis</span><h1>Reading a scalp channel</h1>
+      <div class="prose"><p class="lead">Put the labs together and every channel value carries three things: a mixture of many sources, a reference that is subtracted from it, and a position that defines what it means.</p></div></header>
+    <section class="panel"><h3>What one number means</h3>
+      <p class="mono" style="font-size:15px;margin:6px 0 12px">V(Pz) = φ(Pz) − φ(reference)</p>
+      <p style="color:var(--muted);max-width:68ch">φ(Pz) is itself a blend of every active source in the head, weighted by distance, orientation and the skull. Neither term is "the activity under Pz".</p></section>
+    <div class="grid2">
+      <div class="panel"><h3>Before interpreting an effect</h3><ul class="list">
+        <li>Name the reference and check whether the effect survives as a difference between sites <a href="#reference" data-go="reference">(Lab 4)</a></li>
+        <li>Ask whether a distant or deep source could produce the same topography <a href="#inverse" data-go="inverse">(Lab 2)</a></li>
+        <li>Expect neighboring channels to be correlated; do not count them as independent evidence <a href="#conduction" data-go="conduction">(Lab 1)</a></li>
+        <li>Check which channels the average reference included and how noisy the lowest ring was <a href="#reference" data-go="reference">(Lab 4)</a></li>
+        <li>Use the layout file for the exact net and size, not channel names alone <a href="#layout" data-go="layout">(Lab 5)</a></li></ul></div>
+      <div class="panel"><h3>What to report</h3><ul class="list">
+        <li>Recording reference and any offline re-reference</li>
+        <li>For an average reference, which channels it included</li>
+        <li>For a Laplacian, the method and its parameters (spline order, smoothing)</li>
+        <li>Net or cap model, size, and channel count</li>
+        <li>For source estimates: the head model, the inverse method and its assumptions</li></ul></div>
+    </div>
+    <section class="panel"><h3>Common misconceptions</h3>
+      <div class="grid2">
+        <div class="callout"><b>"A reference electrode is silent."</b><span style="color:var(--muted)">It is not. Its activity appears, inverted, in every channel.</span></div>
+        <div class="callout"><b>"Re-referencing changes the data."</b><span style="color:var(--muted)">It changes how the same data are expressed. Differences between sites are preserved.</span></div>
+        <div class="callout"><b>"More channels give true source localization."</b><span style="color:var(--muted)">They help, but the inverse problem stays ill posed.</span></div>
+        <div class="callout"><b>"A frontal effect comes from frontal cortex."</b><span style="color:var(--muted)">Topography and generator location are related but not the same thing.</span></div>
+      </div></section>
+    <section class="related" id="related" hidden></section>`;
+  return renderRelated($('#related',page),'m2','reading');
+};
+PAGES['m2-check']=quizPage('m2', QUIZ2, "Eight questions built from the module's misconceptions and objectives. Each answer links back to the lab that shows it.");
+PAGES['m2-discussion']=discussionPage('m2', [
+  ["Our nets are referenced at the vertex during recording. What do we gain and lose by changing to an average reference offline?","reference","Lab 4"],
+  ["Why does the average reference depend on how completely the head is covered, and what does that mean for the noisy lowest ring of GSN channels?","layout","Lab 5"],
+  ["When would a surface Laplacian be a better choice than a reference, and what does it throw away?","reference","Lab 4"],
+  ["A reviewer says an effect is \"just a reference artifact.\" What would you check first?","reading","Synthesis"]]);
+
 function plannedPage(mod){
   return (page)=>{
     page.innerHTML=`
@@ -1373,31 +2111,39 @@ function plannedPage(mod){
     return renderRelated($('#related',page),mod.id,'general');
   };
 }
-COURSE.modules.slice(1).forEach(m=>PAGES[m.id]=plannedPage(m));
+COURSE.modules.filter(m=>m.status!=='live').forEach(m=>PAGES[m.id]=plannedPage(m));
 
 /* =========================================================================
    NAVIGATION
    ========================================================================= */
-const ORDER=[...M1.sections.map(s=>s.id),'media'];
-function titleOf(id){ const s=SEC(id); if(s) return s.title; if(id==='media') return 'Slides and videos'; const m=COURSE.modules.find(x=>x.id===id); return m?m.title:''; }
+const ORDER=[...LIVE().flatMap(m=>m.sections.map(s=>s.id)),'media'];
+const QUIZZES={m1:QUIZ, m2:(typeof QUIZ2!=='undefined'?QUIZ2:[])};
+const NOBJ={m1:5, m2:6};
+function titleOf(id){ const s=SEC(id); if(s){ const m=modOf(id); return s.title==='Overview'?'Module '+m.n+' · '+m.title:s.title; } if(id==='media') return 'Slides and videos'; const m=COURSE.modules.find(x=>x.id===id); return m?m.title:''; }
+let navMod='m1';
 function renderNav(cur){
-  const v=store.data.visited;
+  const v=store.data.visited; const cm=modOf(cur); if(cm&&cm.status==='live') navMod=cm.id;
+  const cur_=id=>cur===id?'aria-current="page"':'';
+  const theory=COURSE.modules.filter(m=>typeof m.n==='number').map(m=>{
+    if(m.status!=='live') return `<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur_(m.id)}><span class="tick"></span><span>Module ${m.n} · ${esc(m.title)}</span><span class="lock">soon</span></a>`;
+    const first=m.sections[0].id; const done=m.sections.every(s=>v[s.id]);
+    let h=`<a class="mod" href="#${first}" data-go="${first}" ${cur_(first)}><span class="tick ${done?'done':''}"></span><span>Module ${m.n} · ${esc(m.title)}</span></a>`;
+    if(m.id===navMod) h+=m.sections.slice(1).map(s=>`<a class="sub" href="#${s.id}" data-go="${s.id}" ${cur_(s.id)}><span class="tick ${v[s.id]?'done':''}"></span>${esc(s.title)}</a>`).join('');
+    return h; }).join('');
   $('#nav').innerHTML=`
     <span class="eyebrow">Theory Track</span>
-    <a class="mod" href="#overview" data-go="overview"><span class="tick ${v.overview?'done':''}"></span>Module 1 · Origin of the EEG signal</a>
-    ${M1.sections.slice(1).map(s=>`<a class="sub" href="#${s.id}" data-go="${s.id}" ${cur===s.id?'aria-current="page"':''}><span class="tick ${v[s.id]?'done':''}"></span>${esc(s.title)}</a>`).join('')}
-    ${COURSE.modules.slice(1).filter(m=>typeof m.n==='number').map(m=>`<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur===m.id?'aria-current="page"':''}><span class="tick"></span><span>Module ${m.n} · ${esc(m.title)}</span><span class="lock">soon</span></a>`).join('')}
+    ${theory}
     <span class="eyebrow" style="margin-top:14px">Practical Track</span>
-    ${COURSE.modules.filter(m=>typeof m.n!=='number').map(m=>`<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur===m.id?'aria-current="page"':''}><span class="tick"></span><span>${esc(m.title.replace('Practical: ',''))}</span><span class="lock">soon</span></a>`).join('')}
+    ${COURSE.modules.filter(m=>typeof m.n!=='number').map(m=>`<a class="mod" href="#${m.id}" data-go="${m.id}" ${cur_(m.id)}><span class="tick"></span><span>${esc(m.title.replace('Practical: ',''))}</span><span class="lock">soon</span></a>`).join('')}
     <span class="eyebrow" style="margin-top:14px">Library</span>
-    <a class="mod" href="#media" data-go="media" ${cur==='media'?'aria-current="page"':''}><span class="tick"></span>Slides and videos</a>`;
-  if(cur==='overview') $('#nav a[data-go="overview"]').setAttribute('aria-current','page');
+    <a class="mod" href="#media" data-go="media" ${cur_('media')}><span class="tick"></span>Slides and videos</a>`;
 }
 function updateProgress(){
-  const v=store.data.visited; const secs=M1.sections.map(s=>s.id);
-  const visited=secs.filter(s=>v[s]).length; const objs=Object.values(store.data.obj).filter(Boolean).length; const q=Object.keys(store.data.quiz).length;
-  const pct=Math.round(((visited/secs.length)*0.5 + (objs/5)*0.3 + (q/QUIZ.length)*0.2)*100);
-  $('#progBar').style.width=pct+'%'; $('#progTxt').textContent=pct+'%';
+  const m=COURSE.modules.find(x=>x.id===navMod); const v=store.data.visited; const secs=m.sections.map(s=>s.id);
+  const visited=secs.filter(s=>v[s]).length; let objs=0; for(let i=0;i<NOBJ[m.id];i++) if(store.data.obj[keyFor(m.id,i)]) objs++;
+  const QZ=QUIZZES[m.id]||[]; const q=Object.keys(quizStore(m.id)).length;
+  const pct=Math.round(((visited/secs.length)*0.5 + (objs/NOBJ[m.id])*0.3 + (QZ.length?(q/QZ.length):0)*0.2)*100);
+  $('#progBar').style.width=pct+'%'; $('#progTxt').textContent=pct+'%'; $('#progLbl').textContent='Module '+m.n+' progress';
 }
 let unmount=null, current=null;
 function go(id, push){
@@ -1407,7 +2153,8 @@ function go(id, push){
   unmount=PAGES[id](page)||null;
   const i=ORDER.indexOf(id);
   if(i>=0){ const prev=ORDER[i-1], next=ORDER[i+1]; const pg=document.createElement('nav'); pg.className='pager'; pg.setAttribute('aria-label','Section navigation');
-    pg.innerHTML=(prev?`<a href="#${prev}" data-go="${prev}"><span class="eyebrow">Previous</span><b>${esc(titleOf(prev))}</b></a>`:'')+(next?`<a class="next" href="#${next}" data-go="${next}"><span class="eyebrow">Next</span><b>${esc(titleOf(next))}</b></a>`:'');
+    const lbl=x=>{ const a=modOf(x), b=modOf(id); const t=titleOf(x); return (a&&b&&a!==b&&!t.startsWith('Module'))?'Module '+a.n+' · '+t:t; };
+    pg.innerHTML=(prev?`<a href="#${prev}" data-go="${prev}"><span class="eyebrow">Previous</span><b>${esc(lbl(prev))}</b></a>`:'')+(next?`<a class="next" href="#${next}" data-go="${next}"><span class="eyebrow">Next</span><b>${esc(lbl(next))}</b></a>`:'');
     page.appendChild(pg); }
   if(SEC(id)){ store.data.visited[id]=true; store.save(); }
   renderNav(id); updateProgress();
